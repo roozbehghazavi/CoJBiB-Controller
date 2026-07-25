@@ -10,11 +10,11 @@ Imports System.Runtime.InteropServices
 
 ' Revisar los valores de los atributos del ensamblado
 
-<Assembly: AssemblyTitle("Coj2 Controller")> 
-<Assembly: AssemblyDescription("Software to config and start Coj2 Dedicated servers and to make and store mods for CoJ2 Dedicated Servers online. You can modify character's weapons, ammo quantity and set hardcore mode.")> 
-<Assembly: AssemblyCompany("")> 
-<Assembly: AssemblyProduct("Coj2 Controller")> 
-<Assembly: AssemblyCopyright("Copyright ©  2013")> 
+<Assembly: AssemblyTitle("CoJ2 Controller")>
+<Assembly: AssemblyDescription("Configure and launch CoJ2 Dedicated Servers, manage admins and map rotation, and mod game classes. This IranCoJ edition adds the !mapgo direct map-jump command and a western-themed interface.")>
+<Assembly: AssemblyCompany("Roozbeh Ghazavi — fork of the original by S!lv3r and Tr!tu")>
+<Assembly: AssemblyProduct("CoJ2 Controller — IranCoJ Edition")>
+<Assembly: AssemblyCopyright("Copyright © 2026 Roozbeh Ghazavi. GPLv3. Original © 2013 S!lv3r and Tr!tu.")>
 <Assembly: AssemblyTrademark("")> 
 
 <Assembly: ComVisible(False)> 
@@ -33,7 +33,7 @@ Imports System.Runtime.InteropServices
 ' mediante el asterisco ('*'), como se muestra a continuación:
 ' <Assembly: AssemblyVersion("1.0.*")> 
 
-<Assembly: AssemblyVersion("2.6.1.0")> 
-<Assembly: AssemblyFileVersion("2.6.1.0")> 
+<Assembly: AssemblyVersion("3.0.0.0")>
+<Assembly: AssemblyFileVersion("3.0.0.0")>
 
 <Assembly: NeutralResourcesLanguageAttribute("en")> 

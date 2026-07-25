@@ -29,8 +29,13 @@ Public Class FrmMain
     Dim readini As StreamReader
     Dim descargando As Boolean = False
 
+    'Western plank button art (loaded once from images\ui\; shared by all buttons).
+    Private plankNormal As Image
+    Private plankHover As Image
+
     Private Sub FrmMain_Load(sender As Object, e As EventArgs) Handles MyBase.Load
         lblVersion.Text = "Ver. " & Application.ProductVersion
+        Call ApplyWesternTheme()
         If My.Computer.FileSystem.FileExists(Application.StartupPath & "\ver.txt") Then
             My.Computer.FileSystem.DeleteFile(Application.StartupPath & "\ver.txt")
         End If
@@ -67,7 +72,6 @@ Public Class FrmMain
                         'My.Computer.Network.DownloadFile("https://dl.dropboxusercontent.com/u/89811799/setup_ModsCoJ.exe", Application.StartupPath & "\setup_ModsCoj.exe")
 
                         Process.Start("""" & Application.StartupPath & "\setup_ModsCoj.exe""")
-                        Process.Start("http://coj2controller.hol.es/changelog/")
                         Application.Exit()
                     End If
                 End If
@@ -275,12 +279,87 @@ Public Class FrmMain
     End Sub
 
     Private Sub CustomMapsToolStripMenuItem_Click(sender As Object, e As EventArgs) Handles CustomMapsToolStripMenuItem.Click
-        Me.Hide()
-        frmDownloads.Show()
+        'The old cojmodding.com download flow is dead; open the current IranCoJ launcher/maps page instead.
+        Process.Start("https://www.moddb.com/mods/irancoj-multiplayer-launcher/downloads/irancoj-launcher")
     End Sub
 
+    ' ---------------------------------------------------------------------------
+    ' Western UI theming for the launcher buttons.
+    ' Loads plank art from <StartupPath>\images\ui\ (plank.png / plank_hover.png).
+    ' If the art is missing, the buttons fall back to a leather-brown flat style so
+    ' the launcher still looks themed (and works) before the art is added.
+    ' ---------------------------------------------------------------------------
+    Private Sub ApplyWesternTheme()
+        Dim uiDir As String = System.IO.Path.Combine(Application.StartupPath, "images", "ui")
+        plankNormal = TryLoadImage(System.IO.Path.Combine(uiDir, "plank.png"))
+        plankHover = TryLoadImage(System.IO.Path.Combine(uiDir, "plank_hover.png"))
+        If plankHover Is Nothing Then plankHover = plankNormal
 
-    Private Sub Label2_Click(sender As Object, e As EventArgs) Handles lblHttp.Click
-        Process.Start("http://coj2controller.hol.es")
+        ' Load the main background from images\ui\bg.png (swappable without a rebuild).
+        ' Falls back to the embedded designer BackgroundImage if the file is missing.
+        Dim bg As Image = TryLoadImage(System.IO.Path.Combine(uiDir, "bg.png"))
+        If bg IsNot Nothing Then PictureBox2.BackgroundImage = bg
+
+        ' For the plank's transparent areas to show the cowboy background (instead of
+        ' white), the buttons are reparented onto PictureBox2 and painted transparent.
+        ' Clear any foreground Image so what composites behind them is the Zoom-fitted
+        ' BackgroundImage (a foreground Image is drawn stretched and also isn't picked
+        ' up by transparent children).
+        PictureBox2.Image = Nothing
+
+        StyleWesternButton(btnLaunchServer)
+        StyleWesternButton(btnConfigServer)
+        StyleWesternButton(btnModding)
+    End Sub
+
+    ' Loads an image without keeping the file locked (so the art can be swapped
+    ' while the app is closed without file-in-use errors). Returns Nothing on failure.
+    Private Function TryLoadImage(ByVal path As String) As Image
+        Try
+            If System.IO.File.Exists(path) Then
+                Dim bytes() As Byte = System.IO.File.ReadAllBytes(path)
+                Return Image.FromStream(New System.IO.MemoryStream(bytes))
+            End If
+        Catch
+        End Try
+        Return Nothing
+    End Function
+
+    Private Sub StyleWesternButton(ByVal b As Button)
+        ' Reparent onto PictureBox2 so a transparent BackColor composites against the
+        ' cowboy background directly behind the button. A Button parented to the Form
+        ' cannot see through to a sibling PictureBox, so its transparent (plank) pixels
+        ' render white; parenting it to the background control fixes that.
+        If b.Parent IsNot PictureBox2 Then
+            Dim onForm As Point = b.Location
+            b.Parent = PictureBox2
+            b.Location = New Point(onForm.X - PictureBox2.Left, onForm.Y - PictureBox2.Top)
+            b.BringToFront()
+        End If
+
+        b.FlatStyle = FlatStyle.Flat
+        b.FlatAppearance.BorderSize = 0
+        b.FlatAppearance.MouseOverBackColor = Color.Transparent
+        b.FlatAppearance.MouseDownBackColor = Color.Transparent
+        b.UseVisualStyleBackColor = False
+        b.BackColor = Color.Transparent
+        b.ForeColor = Color.FromArgb(245, 235, 210)                 ' parchment / cream text
+        b.Font = New Font("Rockwell", 13.0!, FontStyle.Bold)        ' slab-serif western feel (falls back if not installed)
+        b.TextAlign = ContentAlignment.MiddleCenter
+        b.Cursor = Cursors.Hand
+
+        If plankNormal IsNot Nothing Then
+            ' Image-based plank button with a hover swap.
+            b.BackgroundImage = plankNormal
+            b.BackgroundImageLayout = ImageLayout.Stretch
+            AddHandler b.MouseEnter, Sub() b.BackgroundImage = plankHover
+            AddHandler b.MouseLeave, Sub() b.BackgroundImage = plankNormal
+        Else
+            ' No art yet: leather-brown flat fallback so it still reads as western.
+            b.BackColor = Color.FromArgb(74, 52, 38)                ' dark leather brown
+            b.FlatAppearance.BorderColor = Color.FromArgb(150, 110, 60)  ' brass/tan border
+            b.FlatAppearance.BorderSize = 2
+            b.FlatAppearance.MouseOverBackColor = Color.FromArgb(105, 74, 48)
+        End If
     End Sub
 End Class

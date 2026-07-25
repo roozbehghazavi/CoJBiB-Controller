@@ -38,7 +38,6 @@ Partial Class FrmMain
         Me.dialRuta = New System.Windows.Forms.FolderBrowserDialog()
         Me.Label1 = New System.Windows.Forms.Label()
         Me.lblVersion = New System.Windows.Forms.Label()
-        Me.lblHttp = New System.Windows.Forms.Label()
         CType(Me.PictureBox2, System.ComponentModel.ISupportInitialize).BeginInit()
         Me.MenuStrip1.SuspendLayout()
         Me.SuspendLayout()
@@ -46,17 +45,17 @@ Partial Class FrmMain
         'btnLaunchServer
         '
         Me.btnLaunchServer.BackColor = System.Drawing.Color.FromArgb(CType(CType(200, Byte), Integer), CType(CType(225, Byte), Integer), CType(CType(220, Byte), Integer))
-        Me.btnLaunchServer.Location = New System.Drawing.Point(85, 73)
+        Me.btnLaunchServer.Location = New System.Drawing.Point(84, 176)
         Me.btnLaunchServer.Name = "btnLaunchServer"
         Me.btnLaunchServer.Size = New System.Drawing.Size(324, 54)
         Me.btnLaunchServer.TabIndex = 0
-        Me.btnLaunchServer.Text = "Launch Coj2 Dedicated Server"
+        Me.btnLaunchServer.Text = "Launch Dedicated Server"
         Me.btnLaunchServer.UseVisualStyleBackColor = False
         '
         'btnConfigServer
         '
         Me.btnConfigServer.BackColor = System.Drawing.Color.FromArgb(CType(CType(200, Byte), Integer), CType(CType(225, Byte), Integer), CType(CType(220, Byte), Integer))
-        Me.btnConfigServer.Location = New System.Drawing.Point(85, 190)
+        Me.btnConfigServer.Location = New System.Drawing.Point(84, 289)
         Me.btnConfigServer.Name = "btnConfigServer"
         Me.btnConfigServer.Size = New System.Drawing.Size(324, 54)
         Me.btnConfigServer.TabIndex = 1
@@ -66,18 +65,18 @@ Partial Class FrmMain
         'btnModding
         '
         Me.btnModding.BackColor = System.Drawing.Color.FromArgb(CType(CType(200, Byte), Integer), CType(CType(225, Byte), Integer), CType(CType(220, Byte), Integer))
-        Me.btnModding.Location = New System.Drawing.Point(85, 307)
+        Me.btnModding.Location = New System.Drawing.Point(84, 402)
         Me.btnModding.Name = "btnModding"
         Me.btnModding.Size = New System.Drawing.Size(324, 54)
         Me.btnModding.TabIndex = 2
-        Me.btnModding.Text = "Modding Coj2 Game"
+        Me.btnModding.Text = "Modding Game Classes"
         Me.btnModding.UseVisualStyleBackColor = False
         '
         'PictureBox2
         '
-        Me.PictureBox2.BackColor = System.Drawing.Color.WhiteSmoke
+        Me.PictureBox2.BackColor = System.Drawing.Color.FromArgb(CType(CType(188, Byte), Integer), CType(CType(193, Byte), Integer), CType(CType(186, Byte), Integer))
         Me.PictureBox2.BackgroundImage = CType(resources.GetObject("PictureBox2.BackgroundImage"), System.Drawing.Image)
-        Me.PictureBox2.BackgroundImageLayout = System.Windows.Forms.ImageLayout.Stretch
+        Me.PictureBox2.BackgroundImageLayout = System.Windows.Forms.ImageLayout.Zoom
         Me.PictureBox2.Dock = System.Windows.Forms.DockStyle.Fill
         Me.PictureBox2.Location = New System.Drawing.Point(0, 24)
         Me.PictureBox2.Name = "PictureBox2"
@@ -169,27 +168,14 @@ Partial Class FrmMain
         Me.lblVersion.TabIndex = 7
         Me.lblVersion.Text = "Ver. 500.0.0"
         '
-        'lblHttp
-        '
-        Me.lblHttp.AutoSize = True
-        Me.lblHttp.BackColor = System.Drawing.Color.Transparent
-        Me.lblHttp.Font = New System.Drawing.Font("Segoe UI", 8.139131!, CType((System.Drawing.FontStyle.Italic Or System.Drawing.FontStyle.Underline), System.Drawing.FontStyle), System.Drawing.GraphicsUnit.Point, CType(0, Byte))
-        Me.lblHttp.ForeColor = System.Drawing.Color.RoyalBlue
-        Me.lblHttp.Location = New System.Drawing.Point(9, 571)
-        Me.lblHttp.Name = "lblHttp"
-        Me.lblHttp.Size = New System.Drawing.Size(131, 13)
-        Me.lblHttp.TabIndex = 8
-        Me.lblHttp.Text = "http://coj2controller.hol.es"
-        '
         'FrmMain
         '
         Me.AutoScaleDimensions = New System.Drawing.SizeF(6.0!, 13.0!)
         Me.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font
         Me.BackColor = System.Drawing.Color.FromArgb(CType(CType(210, Byte), Integer), CType(CType(190, Byte), Integer), CType(CType(190, Byte), Integer))
         Me.BackgroundImage = CType(resources.GetObject("$this.BackgroundImage"), System.Drawing.Image)
-        Me.BackgroundImageLayout = System.Windows.Forms.ImageLayout.Stretch
+        Me.BackgroundImageLayout = System.Windows.Forms.ImageLayout.Zoom
         Me.ClientSize = New System.Drawing.Size(493, 607)
-        Me.Controls.Add(Me.lblHttp)
         Me.Controls.Add(Me.lblVersion)
         Me.Controls.Add(Me.Label1)
         Me.Controls.Add(Me.btnModding)
@@ -228,5 +214,4 @@ Partial Class FrmMain
     Friend WithEvents DownloadsToolStripMenuItem As System.Windows.Forms.ToolStripMenuItem
     Friend WithEvents CustomMapsToolStripMenuItem As System.Windows.Forms.ToolStripMenuItem
     Friend WithEvents lblVersion As System.Windows.Forms.Label
-    Friend WithEvents lblHttp As System.Windows.Forms.Label
 End Class

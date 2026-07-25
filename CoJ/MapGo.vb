@@ -200,7 +200,7 @@ Module MapGo
     ' the internal name (as stored in the ini). Returns "" for an unknown mode.
     Private Function ResolveMode(ByVal mode As String) As String
         Select Case LCase(Trim(mode))
-            Case "historical", "wild west legends", "w.w.legends", "wwlegends", "legends"
+            Case "historical", "wild west legends", "w.w.legends", "wwlegends", "wwl", "legends"
                 Return "historical"
             Case "teamwanted", "manhunt"
                 Return "teamwanted"

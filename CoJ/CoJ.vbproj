@@ -80,6 +80,8 @@
     <Reference Include="System.Core" />
     <Reference Include="System.Xml.Linq" />
     <Reference Include="System.Data.DataSetExtensions" />
+    <Reference Include="System.IO.Compression" />
+    <Reference Include="System.IO.Compression.FileSystem" />
   </ItemGroup>
   <ItemGroup>
     <Import Include="Microsoft.VisualBasic" />
@@ -170,6 +172,11 @@
       <SubType>Form</SubType>
     </Compile>
     <Compile Include="MapGo.vb" />
+    <Compile Include="WesternTheme.vb" />
+    <Compile Include="AssetsBootstrap.vb" />
+    <Compile Include="My Project\ApplicationEvents.vb">
+      <DependentUpon>Application.myapp</DependentUpon>
+    </Compile>
     <Compile Include="Module1.vb" />
     <Compile Include="My Project\AssemblyInfo.vb" />
     <Compile Include="My Project\Application.Designer.vb">
@@ -279,6 +286,23 @@
   </ItemGroup>
   <ItemGroup>
     <Content Include="iconmods.ico" />
+    <!-- App image assets (character/weapon art, launcher backgrounds, western button planks).
+         Copied to the output folder on build so they survive a clean rebuild. -->
+    <Content Include="images\**\*.*">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <None Include="build_assets.ps1" />
+  </ItemGroup>
+  <!-- Single-exe payload: zip images\ + bin\ and embed it so the exe can
+       self-extract those folders on first run (see AssetsBootstrap.vb). -->
+  <Target Name="BuildAssetsPayload" BeforeTargets="BeforeCompile">
+    <Exec Command="powershell -NoProfile -ExecutionPolicy Bypass -File &quot;$(MSBuildProjectDirectory)\build_assets.ps1&quot; -out &quot;$(MSBuildProjectDirectory)\$(IntermediateOutputPath)assets.zip&quot;" />
+  </Target>
+  <ItemGroup>
+    <EmbeddedResource Include="$(IntermediateOutputPath)assets.zip">
+      <LogicalName>CoJ2Controller.assets.zip</LogicalName>
+      <Visible>false</Visible>
+    </EmbeddedResource>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.VisualBasic.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 

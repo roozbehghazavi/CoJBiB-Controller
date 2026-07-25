@@ -1,0 +1,108 @@
+===============================================================================
+ CoJ2 Controller - IranCoJ Edition
+ Version 3.0.0.0  -  2026-07-25
+ Fork of the original CoJ2 Controller by S!lv3r and Tr!tu (GPLv3).
+===============================================================================
+
+This is a major update. Highlights: a new instant map-jump command, automatic
+recovery when the dedicated server crashes, auto-kick for recently kicked
+players, a new western-themed interface, and distribution as a single .exe that
+unpacks everything it needs on first run.
+
+-------------------------------------------------------------------------------
+ NEW FEATURES
+-------------------------------------------------------------------------------
+
+* !mapgo <map> <mode>  (NEW admin command)
+    Jump straight to any map in the rotation instead of pressing "next" over and
+    over. Type, for example:  !mapgo tombstone manhunt
+    - Admin-only.
+    - Has its own on/off toggle on the Admins page ("!mapgo").
+    - Listed in !commandlist when enabled.
+    - When "Remember last maps" is enabled, the rotation is kept in sync so the
+      chosen map becomes the new head of the cycle.
+
+* Automatic server crash recovery
+    If the dedicated server process closes unexpectedly while the console is
+    open, the controller now relaunches it and re-attaches automatically.
+    - New "Auto-restart" checkbox on the Chat page (on by default).
+    - It will NOT interfere with an intentional admin Shutdown or Restart.
+    - Logs "Dedicated server crashed - auto-restarting..." to the console.
+
+* Auto-kick returning players (5 minutes)
+    When a player is kicked - by an admin's in-game /kick OR by a passed
+    !votekick - they are kept out for 5 minutes: if they rejoin within that
+    time the controller kicks them again automatically and tells them how long
+    is left. The 5 minutes count from the first kick.
+    - New "Auto-kick (5m)" checkbox on the Chat page (on by default).
+
+* Single-exe distribution
+    The whole program now ships as ONE file: CoJ2Controller.exe.
+    - On first run it unpacks the images, mod files and help file next to
+      itself automatically - no separate folders to copy.
+    - If it is placed in a read-only/protected location (e.g. Program Files)
+      it now shows a clear warning telling you to move it to a writable folder.
+
+* Western-themed interface
+    - Main window: wood/leather themed image buttons and a new background.
+    - Admin console: aged-wood / parchment / brass color scheme, themed tabs,
+      map grid and inputs.
+
+-------------------------------------------------------------------------------
+ CHANGES
+-------------------------------------------------------------------------------
+
+* !maplist now shows the next 3 maps (previously only 2).
+
+* !votemapnext now passes on a simple majority - more than half of the players
+  must vote yes (previously required ~76%). Now consistent with !votekick.
+
+* !votekick now requires a simple majority (more than half of the players) and
+  its "player not found" handling is clearer.
+
+* The console window is now a fixed size and can no longer be resized, which
+  fixes controls being stretched or pushed off the edges.
+
+-------------------------------------------------------------------------------
+ BUG FIXES
+-------------------------------------------------------------------------------
+
+* Fixed a crash ("Argument 'Length' must be greater or equal to zero") that
+  happened when !votekick or !voteban was typed without a player name.
+
+* Fixed several console layout problems: the Help (F1) button overlapping the
+  Rules tab, the !mapgo toggle being hidden, the map grid missing its right-hand
+  border and misaligned column headers, and buttons/boxes being cut off at the
+  bottom on the Chat, Players, Admins, Logs and Rules pages.
+
+* Fixed the main-window background being stretched/distorted.
+
+-------------------------------------------------------------------------------
+ REMOVED
+-------------------------------------------------------------------------------
+
+* !voteban has been removed (bans are handled outside this tool). The command
+  no longer does anything and is no longer shown in the command list.
+
+* Removed 43 unused image files, making the download smaller.
+
+* Removed the dead http://coj2controller.hol.es link and replaced the broken
+  "Custom maps" download with the current IranCoJ launcher page on ModDB.
+
+-------------------------------------------------------------------------------
+ NOTES
+-------------------------------------------------------------------------------
+
+* Admins are recognised by name from the Admins list in the controller. The
+  in-game /adminlogin command is handled by the dedicated server itself and is
+  not visible to the controller, so an admin must be present in the list to use
+  the admin ! commands.
+
+* Requires .NET Framework 4.8 (already included in Windows 10 and 11).
+
+* Put the exe in a normal, writable folder (Desktop, Documents, a games/tools
+  folder) - not inside Program Files.
+
+* Licensed under the GNU GPL v3. Original (C) 2013 S!lv3r and Tr!tu;
+  fork changes (C) 2026 Roozbeh Ghazavi.
+===============================================================================

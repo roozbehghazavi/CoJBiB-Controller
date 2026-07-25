@@ -135,6 +135,7 @@ Partial Class frmConsola
         Me.chkKill = New System.Windows.Forms.CheckBox()
         Me.chkNewadmin = New System.Windows.Forms.CheckBox()
         Me.chkMapnext = New System.Windows.Forms.CheckBox()
+        Me.chkMapgo = New System.Windows.Forms.CheckBox()
         Me.Label10 = New System.Windows.Forms.Label()
         Me.lbPlayers2 = New System.Windows.Forms.ListBox()
         Me.btnAddAdmin = New System.Windows.Forms.Button()
@@ -189,6 +190,8 @@ Partial Class frmConsola
         Me.TimerGetMapList = New System.Windows.Forms.Timer(Me.components)
         Me.ToolTip1 = New System.Windows.Forms.ToolTip(Me.components)
         Me.TimerKillBalance = New System.Windows.Forms.Timer(Me.components)
+        Me.chkAutoRestart = New System.Windows.Forms.CheckBox()
+        Me.chkAutoKick = New System.Windows.Forms.CheckBox()
         Me.btnHelp = New System.Windows.Forms.Button()
         Me.TabPanel1.SuspendLayout()
         Me.TabChat.SuspendLayout()
@@ -251,12 +254,14 @@ Partial Class frmConsola
         Me.TabPanel1.Margin = New System.Windows.Forms.Padding(2)
         Me.TabPanel1.Name = "TabPanel1"
         Me.TabPanel1.SelectedIndex = 0
-        Me.TabPanel1.Size = New System.Drawing.Size(458, 493)
+        Me.TabPanel1.Size = New System.Drawing.Size(458, 508)
         Me.TabPanel1.TabIndex = 27
         '
         'TabChat
         '
         Me.TabChat.BackColor = System.Drawing.Color.WhiteSmoke
+        Me.TabChat.Controls.Add(Me.chkAutoRestart)
+        Me.TabChat.Controls.Add(Me.chkAutoKick)
         Me.TabChat.Controls.Add(Me.lblWarnings)
         Me.TabChat.Controls.Add(Me.lblWarnedPlayers)
         Me.TabChat.Controls.Add(Me.PanelTeams)
@@ -1256,6 +1261,7 @@ Partial Class frmConsola
         Me.Panel1.Controls.Add(Me.chkKill)
         Me.Panel1.Controls.Add(Me.chkNewadmin)
         Me.Panel1.Controls.Add(Me.chkMapnext)
+        Me.Panel1.Controls.Add(Me.chkMapgo)
         Me.Panel1.Location = New System.Drawing.Point(1, 330)
         Me.Panel1.Margin = New System.Windows.Forms.Padding(2)
         Me.Panel1.Name = "Panel1"
@@ -1341,6 +1347,8 @@ Partial Class frmConsola
         Me.chkVoteBan.Text = "!voteban <name>"
         Me.ToolTip1.SetToolTip(Me.chkVoteBan, "Starts a round of voting to ban to the player written below.")
         Me.chkVoteBan.UseVisualStyleBackColor = True
+        Me.chkVoteBan.Checked = False
+        Me.chkVoteBan.Visible = False
         '
         'chkVotekick
         '
@@ -1614,6 +1622,22 @@ Partial Class frmConsola
         Me.chkMapnext.Text = "!mapnext"
         Me.ToolTip1.SetToolTip(Me.chkMapnext, "Go to the next map in game.")
         Me.chkMapnext.UseVisualStyleBackColor = True
+        '
+        'chkMapgo
+        '
+        Me.chkMapgo.AutoSize = True
+        Me.chkMapgo.Checked = True
+        Me.chkMapgo.CheckState = System.Windows.Forms.CheckState.Checked
+        Me.chkMapgo.Font = New System.Drawing.Font("Segoe UI", 6.886957!, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, CType(0, Byte))
+        Me.chkMapgo.ForeColor = System.Drawing.Color.FromArgb(CType(CType(18, Byte), Integer), CType(CType(58, Byte), Integer), CType(CType(105, Byte), Integer))
+        Me.chkMapgo.Location = New System.Drawing.Point(112, 114)
+        Me.chkMapgo.Margin = New System.Windows.Forms.Padding(2)
+        Me.chkMapgo.Name = "chkMapgo"
+        Me.chkMapgo.Size = New System.Drawing.Size(54, 16)
+        Me.chkMapgo.TabIndex = 100
+        Me.chkMapgo.Text = "!mapgo"
+        Me.ToolTip1.SetToolTip(Me.chkMapgo, "Jump directly to a chosen map: !mapgo <map> <mode>")
+        Me.chkMapgo.UseVisualStyleBackColor = True
         '
         'Label10
         '
@@ -1950,6 +1974,7 @@ Partial Class frmConsola
         Me.dgMaps.ColumnHeadersHeight = 32
         Me.dgMaps.ColumnHeadersHeightSizeMode = System.Windows.Forms.DataGridViewColumnHeadersHeightSizeMode.DisableResizing
         Me.dgMaps.Columns.AddRange(New System.Windows.Forms.DataGridViewColumn() {Me.colMaps, Me.ColMode})
+        Me.dgMaps.AutoSizeColumnsMode = System.Windows.Forms.DataGridViewAutoSizeColumnsMode.Fill
         DataGridViewCellStyle5.Alignment = System.Windows.Forms.DataGridViewContentAlignment.MiddleLeft
         DataGridViewCellStyle5.BackColor = System.Drawing.SystemColors.ControlLightLight
         DataGridViewCellStyle5.Font = New System.Drawing.Font("Segoe UI", 8.139131!, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, CType(0, Byte))
@@ -1982,12 +2007,13 @@ Partial Class frmConsola
         '
         'colMaps
         '
-        Me.colMaps.AutoSizeMode = System.Windows.Forms.DataGridViewAutoSizeColumnMode.None
+        Me.colMaps.AutoSizeMode = System.Windows.Forms.DataGridViewAutoSizeColumnMode.Fill
+        Me.colMaps.FillWeight = 210.0!
         DataGridViewCellStyle3.Alignment = System.Windows.Forms.DataGridViewContentAlignment.MiddleLeft
         DataGridViewCellStyle3.Font = New System.Drawing.Font("Segoe UI", 8.139131!, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, CType(0, Byte))
         Me.colMaps.DefaultCellStyle = DataGridViewCellStyle3
         Me.colMaps.HeaderText = "Maps list in rotation "
-        Me.colMaps.MinimumWidth = 210
+        Me.colMaps.MinimumWidth = 120
         Me.colMaps.Name = "colMaps"
         Me.colMaps.ReadOnly = True
         Me.colMaps.SortMode = System.Windows.Forms.DataGridViewColumnSortMode.NotSortable
@@ -1997,12 +2023,13 @@ Partial Class frmConsola
         '
         'ColMode
         '
-        Me.ColMode.AutoSizeMode = System.Windows.Forms.DataGridViewAutoSizeColumnMode.None
+        Me.ColMode.AutoSizeMode = System.Windows.Forms.DataGridViewAutoSizeColumnMode.Fill
+        Me.ColMode.FillWeight = 275.0!
         DataGridViewCellStyle4.Alignment = System.Windows.Forms.DataGridViewContentAlignment.MiddleLeft
         DataGridViewCellStyle4.Font = New System.Drawing.Font("Segoe UI", 8.139131!)
         Me.ColMode.DefaultCellStyle = DataGridViewCellStyle4
         Me.ColMode.HeaderText = "GameMode"
-        Me.ColMode.MinimumWidth = 275
+        Me.ColMode.MinimumWidth = 120
         Me.ColMode.Name = "ColMode"
         Me.ColMode.ReadOnly = True
         Me.ColMode.SortMode = System.Windows.Forms.DataGridViewColumnSortMode.NotSortable
@@ -2397,6 +2424,34 @@ Partial Class frmConsola
         '
         Me.TimerKillBalance.Interval = 6000
         '
+        'chkAutoRestart
+        '
+        Me.chkAutoRestart.AutoSize = False
+        Me.chkAutoRestart.Checked = True
+        Me.chkAutoRestart.CheckState = System.Windows.Forms.CheckState.Checked
+        Me.chkAutoRestart.Font = New System.Drawing.Font("Segoe UI", 6.886957!, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, CType(0, Byte))
+        Me.chkAutoRestart.Location = New System.Drawing.Point(295, 435)
+        Me.chkAutoRestart.Name = "chkAutoRestart"
+        Me.chkAutoRestart.Size = New System.Drawing.Size(100, 14)
+        Me.chkAutoRestart.TabIndex = 101
+        Me.chkAutoRestart.Text = "Auto-restart"
+        Me.ToolTip1.SetToolTip(Me.chkAutoRestart, "Automatically relaunch the dedicated server if it crashes while the console is open.")
+        Me.chkAutoRestart.UseVisualStyleBackColor = True
+        '
+        'chkAutoKick
+        '
+        Me.chkAutoKick.AutoSize = False
+        Me.chkAutoKick.Checked = True
+        Me.chkAutoKick.CheckState = System.Windows.Forms.CheckState.Checked
+        Me.chkAutoKick.Font = New System.Drawing.Font("Segoe UI", 6.886957!, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, CType(0, Byte))
+        Me.chkAutoKick.Location = New System.Drawing.Point(295, 449)
+        Me.chkAutoKick.Name = "chkAutoKick"
+        Me.chkAutoKick.Size = New System.Drawing.Size(100, 14)
+        Me.chkAutoKick.TabIndex = 102
+        Me.chkAutoKick.Text = "Auto-kick (5m)"
+        Me.ToolTip1.SetToolTip(Me.chkAutoKick, "Keep a kicked player out for 5 minutes: if they rejoin they are kicked again automatically.")
+        Me.chkAutoKick.UseVisualStyleBackColor = True
+        '
         'btnHelp
         '
         Me.btnHelp.AutoSize = True
@@ -2414,9 +2469,10 @@ Partial Class frmConsola
         '
         Me.AutoScaleDimensions = New System.Drawing.SizeF(6.0!, 13.0!)
         Me.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font
-        Me.ClientSize = New System.Drawing.Size(458, 493)
+        Me.ClientSize = New System.Drawing.Size(458, 512)
         Me.Controls.Add(Me.btnHelp)
         Me.Controls.Add(Me.TabPanel1)
+        Me.FormBorderStyle = System.Windows.Forms.FormBorderStyle.FixedSingle
         Me.ForeColor = System.Drawing.SystemColors.WindowText
         Me.Icon = CType(resources.GetObject("$this.Icon"), System.Drawing.Icon)
         Me.KeyPreview = True
@@ -2556,6 +2612,7 @@ Partial Class frmConsola
     Friend WithEvents chkKill As System.Windows.Forms.CheckBox
     Friend WithEvents chkNewadmin As System.Windows.Forms.CheckBox
     Friend WithEvents chkMapnext As System.Windows.Forms.CheckBox
+    Friend WithEvents chkMapgo As System.Windows.Forms.CheckBox
     Friend WithEvents chkMaplistAd As System.Windows.Forms.CheckBox
     Friend WithEvents chkMaplist As System.Windows.Forms.CheckBox
     Friend WithEvents chkVoteBan As System.Windows.Forms.CheckBox
@@ -2580,6 +2637,8 @@ Partial Class frmConsola
     Friend WithEvents lbRedTeam As System.Windows.Forms.ListBox
     Friend WithEvents Label17 As System.Windows.Forms.Label
     Friend WithEvents TimerKillBalance As System.Windows.Forms.Timer
+    Friend WithEvents chkAutoRestart As System.Windows.Forms.CheckBox
+    Friend WithEvents chkAutoKick As System.Windows.Forms.CheckBox
     Friend WithEvents colMaps As System.Windows.Forms.DataGridViewTextBoxColumn
     Friend WithEvents ColMode As System.Windows.Forms.DataGridViewTextBoxColumn
     Friend WithEvents chkBalance2 As System.Windows.Forms.CheckBox
