@@ -29,16 +29,12 @@ On the other hand, the communication between CoJ2 Controller and the server is m
 ## Installation
 CoJ2 Controller was developed under Windows with Visual Basic .Net using Visual Studio 2012.
 ### Dependencies
-- .Net Framework 4.0.
+- .Net Framework 4.8 (Updated).
 - CoJ2 Dedicated Server.
 - CoJ2 Patch v1.1, required for dedicated servers to run.
 
 ### Development environment
-- Visual Studio 2012 (it works with Visual Studio 2017 but some project settings are bugged).
-
-## Binaries download
-You can directly download the installer from [Dropbox](https://www.dropbox.com/s/t6jsyuupg6ls0iw/setup_ModsCoJ.zip?dl=1).
-Dependencies are automatically installed along with CoJ2 Controller.
+- Visual Studio 2026 (Updated).
 
 ## Demo videos
 Some videos were uploaded where most of the functionalities are shown.
