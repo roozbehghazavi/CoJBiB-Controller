@@ -12,18 +12,23 @@
 ' =================================================================================
 
 Imports System.IO
-Imports System.IO.Compression
 Imports System.Reflection
 
 ' The app loads its character/weapon art and the modding class files from loose
 ' folders next to the exe (images\ and bin\). To ship as a single .exe, those
-' folders are compressed into a payload embedded in the exe at build time; on
-' first run (or after a version change) we extract them beside the exe. If no
-' payload is embedded (e.g. a plain dev build) we silently rely on the on-disk
-' folders that the normal build already copies to the output directory.
+' files are bundled into a payload embedded in the exe at build time; on first
+' run (or after a version change) we extract them beside the exe. If no payload
+' is embedded (e.g. a plain dev build) we silently rely on the on-disk folders
+' that the normal build already copies to the output directory.
+'
+' The payload is a simple uncompressed container read with only System.IO, so the
+' app stays runnable on plain .NET Framework 4.0 (e.g. under Wine with dotnet40),
+' which does NOT ship System.IO.Compression (ZipArchive). Format per entry,
+' little-endian, repeated to end of stream:
+'   Int32 pathLen, UTF-8 path bytes, Int64 dataLen, data bytes.
 Public Module AssetsBootstrap
 
-    Private Const ResourceName As String = "CoJ2Controller.assets.zip"
+    Private Const ResourceName As String = "CoJ2Controller.assets.pack"
 
     Public Sub EnsureAssets()
         Dim baseDir As String = Application.StartupPath
@@ -41,18 +46,19 @@ Public Module AssetsBootstrap
             If haveImages AndAlso haveBin AndAlso haveChm AndAlso markerOk Then Return
 
             Using s As Stream = Assembly.GetExecutingAssembly().GetManifestResourceStream(ResourceName)
-                If s Is Nothing Then Return   ' no embedded payload; use on-disk folders
+                If s Is Nothing OrElse s.Length = 0 Then Return   ' no embedded payload; use on-disk folders
                 attemptedExtract = True       ' from here on, a failure means we could not write
-                Using zip As New ZipArchive(s, ZipArchiveMode.Read)
-                    For Each entry As ZipArchiveEntry In zip.Entries
-                        ' Skip directory entries (empty Name).
-                        If String.IsNullOrEmpty(entry.Name) Then Continue For
-                        ' Normalise separators (Compress-Archive has used both over the years).
-                        Dim rel As String = entry.FullName.Replace("/"c, Path.DirectorySeparatorChar).Replace("\"c, Path.DirectorySeparatorChar)
+                Using br As New BinaryReader(s)
+                    While br.BaseStream.Position < br.BaseStream.Length
+                        Dim pathLen As Integer = br.ReadInt32()
+                        Dim rel As String = Text.Encoding.UTF8.GetString(br.ReadBytes(pathLen))
+                        Dim dataLen As Long = br.ReadInt64()
+                        Dim data() As Byte = br.ReadBytes(CInt(dataLen))   ' bundled files are well under 2 GB
+                        rel = rel.Replace("/"c, Path.DirectorySeparatorChar).Replace("\"c, Path.DirectorySeparatorChar)
                         Dim target As String = Path.Combine(baseDir, rel)
                         Directory.CreateDirectory(Path.GetDirectoryName(target))
-                        entry.ExtractToFile(target, True)
-                    Next
+                        File.WriteAllBytes(target, data)
+                    End While
                 End Using
             End Using
 

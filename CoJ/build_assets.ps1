@@ -1,31 +1,68 @@
-# Builds the single-exe asset payload (assets.zip) that gets embedded in the exe.
-# Zips the loose files the app reads at runtime:
+# Builds the single-exe asset payload embedded in the exe.
+# Bundles the loose files the app reads at runtime:
 #   images\        -> images/...       (character/weapon art, backgrounds, western planks)
 #   bin\Debug\bin\ -> bin/...          (modscoj.dll + Net_* class template files)
 #   CoJ Mods.chm   -> CoJ Mods.chm     (help file opened by the Help / F1 buttons)
-# Called from the .vbproj before compilation. -out is the target zip path.
+#
+# Uses a simple UNCOMPRESSED container (not zip) so extraction needs only
+# System.IO at runtime - this keeps the app runnable on plain .NET Framework 4.0
+# (e.g. under Wine with dotnet40), which lacks System.IO.Compression (ZipArchive).
+# The art and help file are already-compressed formats, so zip would not shrink
+# them meaningfully anyway.
+#
+# Container format (little-endian, repeated until end of stream):
+#   Int32  path length (bytes)
+#   bytes  relative path, UTF-8, forward slashes
+#   Int64  data length
+#   bytes  file data
 param([Parameter(Mandatory = $true)][string]$out)
 
 $ErrorActionPreference = "Stop"
-$root   = Split-Path -Parent $MyInvocation.MyCommand.Path
-$images = Join-Path $root "images"
-$bin    = Join-Path $root "bin\Debug\bin"
-$chm    = Join-Path $root "CoJ Mods.chm"
+$root = Split-Path -Parent $MyInvocation.MyCommand.Path
+$entries = New-Object System.Collections.Generic.List[object]
+
+function Collect($dir, $prefix) {
+    if (Test-Path $dir) {
+        $base = (Resolve-Path $dir).Path
+        Get-ChildItem -LiteralPath $dir -Recurse -File | ForEach-Object {
+            $rel = $prefix + "/" + $_.FullName.Substring($base.Length).TrimStart('\', '/').Replace('\', '/')
+            $entries.Add([pscustomobject]@{ Rel = $rel; Full = $_.FullName })
+        }
+    }
+}
+
+Collect (Join-Path $root "images") "images"
+Collect (Join-Path $root "bin\Debug\bin") "bin"
+$chm = Join-Path $root "CoJ Mods.chm"
+if (Test-Path $chm) { $entries.Add([pscustomobject]@{ Rel = "CoJ Mods.chm"; Full = $chm }) }
 
 $outDir = Split-Path -Parent $out
 if (-not (Test-Path $outDir)) { New-Item -ItemType Directory -Force -Path $outDir | Out-Null }
 if (Test-Path $out) { Remove-Item -Force $out }
 
-$paths = @()
-if (Test-Path $images) { $paths += $images }
-if (Test-Path $bin)    { $paths += $bin }
-if (Test-Path $chm)    { $paths += $chm }
-
-if ($paths.Count -eq 0) {
+if ($entries.Count -eq 0) {
     Write-Host "build_assets: no images\ or bin\ found under $root; skipping payload."
+    New-Item -ItemType File -Path $out | Out-Null
     exit 0
 }
 
-Compress-Archive -Path $paths -DestinationPath $out -Force
+$fs = [System.IO.File]::Create($out)
+$bw = New-Object System.IO.BinaryWriter($fs)
+try {
+    $enc = [System.Text.Encoding]::UTF8
+    foreach ($e in $entries) {
+        $pathBytes = $enc.GetBytes($e.Rel)
+        $data = [System.IO.File]::ReadAllBytes($e.Full)
+        $bw.Write([int]$pathBytes.Length)
+        $bw.Write($pathBytes)
+        $bw.Write([long]$data.LongLength)
+        $bw.Write($data)
+    }
+}
+finally {
+    $bw.Close()
+    $fs.Close()
+}
+
 $size = [math]::Round((Get-Item $out).Length / 1MB, 2)
-Write-Host "build_assets: wrote $out ($size MB) from: $($paths -join ', ')"
+Write-Host "build_assets: wrote $out ($size MB, $($entries.Count) files)"

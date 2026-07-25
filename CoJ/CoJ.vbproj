@@ -80,8 +80,6 @@
     <Reference Include="System.Core" />
     <Reference Include="System.Xml.Linq" />
     <Reference Include="System.Data.DataSetExtensions" />
-    <Reference Include="System.IO.Compression" />
-    <Reference Include="System.IO.Compression.FileSystem" />
   </ItemGroup>
   <ItemGroup>
     <Import Include="Microsoft.VisualBasic" />
@@ -293,14 +291,16 @@
     </Content>
     <None Include="build_assets.ps1" />
   </ItemGroup>
-  <!-- Single-exe payload: zip images\ + bin\ and embed it so the exe can
-       self-extract those folders on first run (see AssetsBootstrap.vb). -->
+  <!-- Single-exe payload: bundle images\ + bin\ + help into an uncompressed
+       container and embed it so the exe can self-extract on first run
+       (see AssetsBootstrap.vb). Uncompressed so extraction needs only System.IO,
+       keeping the app runnable on .NET Framework 4.0 (e.g. Wine dotnet40). -->
   <Target Name="BuildAssetsPayload" BeforeTargets="BeforeCompile">
-    <Exec Command="powershell -NoProfile -ExecutionPolicy Bypass -File &quot;$(MSBuildProjectDirectory)\build_assets.ps1&quot; -out &quot;$(MSBuildProjectDirectory)\$(IntermediateOutputPath)assets.zip&quot;" />
+    <Exec Command="powershell -NoProfile -ExecutionPolicy Bypass -File &quot;$(MSBuildProjectDirectory)\build_assets.ps1&quot; -out &quot;$(MSBuildProjectDirectory)\$(IntermediateOutputPath)assets.pack&quot;" />
   </Target>
   <ItemGroup>
-    <EmbeddedResource Include="$(IntermediateOutputPath)assets.zip">
-      <LogicalName>CoJ2Controller.assets.zip</LogicalName>
+    <EmbeddedResource Include="$(IntermediateOutputPath)assets.pack">
+      <LogicalName>CoJ2Controller.assets.pack</LogicalName>
       <Visible>false</Visible>
     </EmbeddedResource>
   </ItemGroup>
