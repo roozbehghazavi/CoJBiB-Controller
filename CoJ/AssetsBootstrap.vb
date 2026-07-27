@@ -40,10 +40,11 @@ Public Module AssetsBootstrap
             Dim haveImages As Boolean = Directory.Exists(Path.Combine(baseDir, "images"))
             Dim haveBin As Boolean = Directory.Exists(Path.Combine(baseDir, "bin"))
             Dim haveChm As Boolean = File.Exists(Path.Combine(baseDir, "CoJ Mods.chm"))
+            Dim haveVdll As Boolean = File.Exists(Path.Combine(baseDir, "mod", "version.dll"))
             Dim markerOk As Boolean = File.Exists(marker) AndAlso File.ReadAllText(marker).Trim() = ver
 
             ' Everything already present and current -> nothing to do.
-            If haveImages AndAlso haveBin AndAlso haveChm AndAlso markerOk Then Return
+            If haveImages AndAlso haveBin AndAlso haveChm AndAlso haveVdll AndAlso markerOk Then Return
 
             Using s As Stream = Assembly.GetExecutingAssembly().GetManifestResourceStream(ResourceName)
                 If s Is Nothing OrElse s.Length = 0 Then Return   ' no embedded payload; use on-disk folders

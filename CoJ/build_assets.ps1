@@ -35,6 +35,13 @@ Collect (Join-Path $root "images") "images"
 Collect (Join-Path $root "bin\Debug\bin") "bin"
 $chm = Join-Path $root "CoJ Mods.chm"
 if (Test-Path $chm) { $entries.Add([pscustomobject]@{ Rel = "CoJ Mods.chm"; Full = $chm }) }
+# In-process admin mod. Packed under mod/ (NOT the payload root) on purpose: it is
+# extracted to <exe dir>\mod\version.dll, a subfolder that is NOT on the controller's
+# DLL search path, so a WINEDLLOVERRIDES=version=n,b never loads the game mod into the
+# controller itself. FrmMain copies it from there into the dedicated-server folder,
+# where the server's own directory IS searched, so the server loads it.
+$vdll = Join-Path $root "version.dll"
+if (Test-Path $vdll) { $entries.Add([pscustomobject]@{ Rel = "mod/version.dll"; Full = $vdll }) }
 
 $outDir = Split-Path -Parent $out
 if (-not (Test-Path $outDir)) { New-Item -ItemType Directory -Force -Path $outDir | Out-Null }

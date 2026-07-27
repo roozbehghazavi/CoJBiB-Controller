@@ -49,6 +49,118 @@ Public Class frmConsola
     Private tempKicked As New Dictionary(Of String, Date)
     Private autoKickMinutes As Integer = 5
 
+    ' Authenticated-admin detection (anti name-spoofing).
+    ' The in-process mod (version.dll) validates /adminlogin against ServerAdmins.ini
+    ' and publishes the set of currently-authenticated admins to "authed_admins.txt"
+    ' next to the server exe. Each line is:  <name><TAB><rights>  (rights 0 or 1).
+    ' The file is rewritten on every login and cleared on map change (auth resets
+    ' per map), so we simply mirror whatever it currently says. When the mod is not
+    ' loaded the file is absent and we fall back to the manual name list (lbAdmin).
+    Private authedAdmins As New HashSet(Of String)
+    Private authedStamp As Date = Date.MinValue
+
+    ' Re-read authed_admins.txt only when it actually changed (keyed on write time),
+    ' so this can be called freely on every console line without disk churn.
+    Private Sub RefreshAuthedAdmins()
+        Try
+            Dim f As String = ruta & "\authed_admins.txt"
+            If Not System.IO.File.Exists(f) Then
+                If authedAdmins.Count > 0 Then authedAdmins.Clear()
+                authedStamp = Date.MinValue
+                Return
+            End If
+            Dim stamp As Date = System.IO.File.GetLastWriteTimeUtc(f)
+            If stamp = authedStamp Then Return
+            authedStamp = stamp
+            authedAdmins.Clear()
+            For Each ln As String In System.IO.File.ReadAllLines(f)
+                Dim nm As String = ln.Split(ControlChars.Tab)(0).Trim()
+                If nm <> "" Then authedAdmins.Add(nm)
+            Next
+        Catch
+            ' Mid-write / locked file: keep the previous snapshot, retry next call.
+        End Try
+    End Sub
+
+    ' True if version.dll reports this exact in-game name as /adminlogin-authenticated.
+    Private Function IsAuthedAdmin(ByVal playerName As String) As Boolean
+        RefreshAuthedAdmins()
+        Return authedAdmins.Contains(playerName)
+    End Function
+
+    ' The single admin predicate used to gate !commands: authenticated (spoof-proof)
+    ' OR present in the manual name list (fallback when the mod isn't loaded).
+    Private Function IsAdmin(ByVal playerName As String) As Boolean
+        Return IsAuthedAdmin(playerName) OrElse lbAdmin.Items.Contains(playerName)
+    End Function
+
+    ' Revoke an authenticated admin when they leave / are kicked. The mod (version.dll)
+    ' only adds names on /adminlogin; the controller removes them here so a new player
+    ' who reuses the name can't inherit the departed admin's rights before the next
+    ' map change (when the mod clears the file). We drop the entry both in memory and
+    ' from the file, rewriting it atomically so a concurrent read never sees it torn.
+    Private Sub RemoveAuthedAdmin(ByVal playerName As String)
+        Try
+            authedAdmins.Remove(playerName)
+            Dim f As String = ruta & "\authed_admins.txt"
+            If Not System.IO.File.Exists(f) Then Return
+            Dim kept As New List(Of String)
+            For Each ln As String In System.IO.File.ReadAllLines(f)
+                Dim nm As String = ln.Split(ControlChars.Tab)(0).Trim()
+                If nm <> "" AndAlso nm <> playerName Then kept.Add(ln)
+            Next
+            Dim tmp As String = f & ".tmp"
+            System.IO.File.WriteAllLines(tmp, kept.ToArray(), New Text.UTF8Encoding(False))
+            System.IO.File.Replace(tmp, f, Nothing)
+            ' Our own write bumps the mtime; sync the cache stamp so RefreshAuthedAdmins
+            ' doesn't needlessly re-read the file we just wrote.
+            authedStamp = System.IO.File.GetLastWriteTimeUtc(f)
+        Catch
+            ' Mod holds the file open / folder read-only: keep the in-memory removal;
+            ' the next login or map change reconciles the file.
+        End Try
+    End Sub
+
+    ' Rotates dgMaps so the map the server actually just loaded becomes row 0 (the
+    ' current map). The controller otherwise only advances its cycle by one on
+    ' "Game ended!", so a bare-console /mapset (or the in-game dll hook) that jumps to
+    ' an arbitrary map would leave the tracked rotation one-or-more steps off - which
+    ' is the bug where the controller showed the next map as one behind the real one.
+    ' Driven by the authoritative "Loading map <X> mode <Y>" console line, this
+    ' reconciles the grid to reality for every source of a change (!mapgo, /mapset, the
+    ' dll hook, or "remember last map" on startup). It only reorders the controller's
+    ' own display rows - it never writes server memory - so it can't conflict with
+    ' !mapgo or the dll. A no-op when already in sync or the map isn't in the rotation.
+    Private Sub ResyncMapCycle(ByVal loadedMap As String, ByVal loadedMode As String)
+        Try
+            If dgMaps.Rows.Count = 0 Then Return
+
+            Dim rows As New List(Of String())
+            For fila As Integer = 0 To dgMaps.Rows.Count - 1
+                Dim c0 = dgMaps.Rows(fila).Cells(0).Value
+                Dim c1 = dgMaps.Rows(fila).Cells(1).Value
+                rows.Add(New String() {If(c0 Is Nothing, "", c0.ToString()), If(c1 Is Nothing, "", c1.ToString())})
+            Next
+
+            Dim idx As Integer = -1
+            If Not MapGo.FindRowForLoadedMap(rows, loadedMap, loadedMode, idx) Then Return
+            If idx <= 0 Then Return   ' already the current row, nothing to rotate
+
+            ' Move the idx maps ahead of it to the bottom, preserving cyclic order, so
+            ' the loaded map lands at row 0 (same rotation the "Game ended!" path uses).
+            For j As Integer = 1 To idx
+                Dim mapa As String = dgMaps.Rows(0).Cells(0).Value.ToString()
+                Dim modo As String = dgMaps.Rows(0).Cells(1).Value.ToString()
+                dgMaps.Rows.Remove(dgMaps.Rows(0))
+                dgMaps.Rows.Add()
+                dgMaps.Rows(dgMaps.Rows.Count - 1).Cells(0).Value = mapa
+                dgMaps.Rows(dgMaps.Rows.Count - 1).Cells(1).Value = modo
+            Next
+        Catch
+            ' Never let a rotation hiccup interrupt console processing.
+        End Try
+    End Sub
+
     Public Sub CloseLogReader()
         gameLogReader.Close()
     End Sub
@@ -636,7 +748,7 @@ Public Class frmConsola
                 addConsole = True
                 '**************Control palabras prohibidas********************
                 Dim RowPlayer As Integer = -1
-                If Not lbAdmin.Items.Contains(PlayerLeido) Then
+                If Not IsAdmin(PlayerLeido) Then
 
                     For i = 0 To lbWords.Items.Count - 1
                         If InStr(LCase(lineaLeida), lbWords.Items(i).ToString) > 0 Then
@@ -718,6 +830,13 @@ Public Class frmConsola
                                 End If
                             End If
                         End If
+                    End If
+
+                    ' Authenticated admin left or was kicked -> revoke their /adminlogin
+                    ' authorization at once (mirrors removing them from the old table).
+                    If PlayerJoinOrLeave <> "" AndAlso _
+                       (InStr(lineaLeida, "left the game") > 0 OrElse InStr(lineaLeida, "has been kicked") > 0) Then
+                        RemoveAuthedAdmin(PlayerJoinOrLeave)
                     End If
 
                 End If
@@ -827,6 +946,21 @@ Public Class frmConsola
                 'Variable para dar tiempo de espera desde que se activa el tiempo al unirse un jugador al juego
                 'hasta que se une a algún equipo, toma valor 4 (ciclos de 3sec.), total 12 sec.
                 ciclosSinContar = 4
+
+                ' Resync the tracked rotation to whatever actually loaded (fixes the
+                ' desync when a map is changed by /mapset or the dll hook, not !mapgo).
+                Dim loadedMapName As String = ""
+                Dim loadedModeName As String = ""
+                Try
+                    Dim afterMap As String = Mid(lineaLeida, InStr(lineaLeida, "<") + 1)   ' "Frisco> mode <Manhunt>"
+                    loadedMapName = Trim(Mid(afterMap, 1, InStr(afterMap, ">") - 1))       ' "Frisco"
+                    Dim afterMode As String = Mid(afterMap, InStr(afterMap, "<") + 1)      ' "Manhunt>"
+                    loadedModeName = Trim(Mid(afterMode, 1, InStr(afterMode, ">") - 1))    ' "Manhunt"
+                Catch
+                End Try
+                If loadedMapName <> "" AndAlso loadedModeName <> "" Then
+                    ResyncMapCycle(loadedMapName, loadedModeName)
+                End If
             End If
 
             'Loading map <Adobes> mode <Shootout>
@@ -1026,7 +1160,7 @@ Public Class frmConsola
 
             '********************************************************************
             '*******************COMMANDS Admin***********************************
-            If lbAdmin.Items.Contains(PlayerLeido) Then
+            If IsAdmin(PlayerLeido) Then
                 Dim comando As String = ""
                 If InStr(lineaLeida, "!addword") > 0 Then
                     Dim Palabra As String = LCase(Mid(lineaLeida, (InStr(lineaLeida, "!addword") + 9), Len(lineaLeida) - (InStr(lineaLeida, "!addword") + 8)))
@@ -1237,7 +1371,7 @@ Public Class frmConsola
                 End If
 
 
-            ElseIf Not lbAdmin.Items.Contains(PlayerLeido) Then
+            ElseIf Not IsAdmin(PlayerLeido) Then
                 '********************************************************************
                 '*******************COMMANDS Normal Players***************************
 
@@ -1318,7 +1452,7 @@ Public Class frmConsola
                         Else
                             playerInVote = ""
                         End If
-                        If playerInVote <> "" AndAlso FindInListbox(LbPlayers, playerInVote) = True And FindInListbox(lbAdmin, playerInVote) = False Then
+                        If playerInVote <> "" AndAlso FindInListbox(LbPlayers, playerInVote) = True And Not IsAdmin(playerInVote) Then
                             CommandInVote = "!votekick"
                             'Necesita más de la mitad de los jugadores del servidor.
                             mNextNeededVotes = (LbPlayers.Items.Count \ 2) + 1
@@ -1329,7 +1463,7 @@ Public Class frmConsola
                         End If
                     End If
 
-                    If FindInListbox(LbPlayers, playerInVote) = True And FindInListbox(lbAdmin, playerInVote) = False Or InStr(lineaLeida, "!votemapnext") > 0 Then
+                    If FindInListbox(LbPlayers, playerInVote) = True And Not IsAdmin(playerInVote) Or InStr(lineaLeida, "!votemapnext") > 0 Then
                         mNextVotesYes = 0
                         mNextPlayersVoted = ""
 
@@ -1370,7 +1504,7 @@ Public Class frmConsola
                             SendToConsole("/mapnext")
                             SendToConsole("/adminsay Vote Passed.  (" & mNextVotesYes.ToString.Trim & "/" & mNextNeededVotes.ToString.Trim & " votes)")
                         ElseIf CommandInVote = "!votekick" Then
-                            If FindInListbox(lbBanned, playerInVote) = False And FindInListbox(lbAdmin, playerInVote) = False Then
+                            If FindInListbox(lbBanned, playerInVote) = False And Not IsAdmin(playerInVote) Then
                                 SendToConsole("/kick " & playerInVote & " kick by players' votes")
                                 SendToConsole("/adminsay Vote Passed.  (" & mNextVotesYes.ToString.Trim & "/" & mNextNeededVotes.ToString.Trim & " votes). " & playerInVote & " was kicked out!!!")
                             End If

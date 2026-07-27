@@ -188,6 +188,33 @@ Module MapGo
 
     End Function
 
+    ''' <summary>
+    ''' Resolves the map the server actually just loaded (as printed on its
+    ''' "Loading map &lt;X&gt; mode &lt;Y&gt;" line) to its row in the controller's
+    ''' rotation, so the caller can rotate dgMaps to match reality. This keeps the
+    ''' tracked cycle in sync no matter how the map changed - normal !mapgo, a
+    ''' bare-console /mapset + /mapnext, the in-game dll hook, or "remember last map"
+    ''' on startup. Scans from row 0 (the assumed current map) forward and returns the
+    ''' first match, including row 0 itself (0 = already in sync, nothing to rotate).
+    ''' Uses the same name/mode normalization as !mapgo, so aliases and duplicates
+    ''' behave identically. Returns False (rowIndex = -1) if the loaded map/mode is not
+    ''' in the rotation, in which case the caller must leave dgMaps untouched.
+    ''' </summary>
+    Public Function FindRowForLoadedMap(ByVal rows As List(Of String()), ByVal mapArg As String,
+                                        ByVal modeArg As String, ByRef rowIndex As Integer) As Boolean
+        rowIndex = -1
+        Dim wantedMode As String = ResolveMode(modeArg)
+        Dim wantedMap As String = NormalizeMap(mapArg)
+        If wantedMode = "" OrElse wantedMap = "" Then Return False
+        For i As Integer = 0 To rows.Count - 1
+            If NormalizeMap(rows(i)(0)) = wantedMap AndAlso ResolveMode(StripMode(rows(i)(1))) = wantedMode Then
+                rowIndex = i
+                Return True
+            End If
+        Next
+        Return False
+    End Function
+
     ' Strips the "<...>" wrapper dgMaps uses around the display mode name.
     Private Function StripMode(ByVal s As String) As String
         s = Trim(s)

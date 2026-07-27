@@ -171,6 +171,26 @@ Public Class FrmMain
             End If
         End While
 
+        ' The DS path is now confirmed valid. Deploy the in-process admin mod into the
+        ' dedicated-server folder so /adminlogin authentication is available there. It
+        ' is unpacked to <exe dir>\mod\version.dll (a subfolder, NOT next to the exe) so
+        ' a WINEDLLOVERRIDES=version=n,b can never load the game mod into the controller
+        ' itself; the server's own folder (ruta) IS on its DLL search path, so once we
+        ' copy it there the server loads it. Copy only when missing or a different size,
+        ' so we refresh it when the bundled mod changes but don't rewrite it every launch.
+        Try
+            Dim src As String = Application.StartupPath & "\mod\version.dll"
+            Dim dst As String = ruta & "\version.dll"
+            If System.IO.File.Exists(src) Then
+                If (Not System.IO.File.Exists(dst)) OrElse _
+                   New System.IO.FileInfo(src).Length <> New System.IO.FileInfo(dst).Length Then
+                    System.IO.File.Copy(src, dst, True)
+                End If
+            End If
+        Catch
+            ' DS folder read-only or version.dll already loaded by a running server:
+            ' the server still runs, just without the mod until the file can be written.
+        End Try
 
     End Sub
 

@@ -1,5 +1,77 @@
 ===============================================================================
  CoJ2 Controller - IranCoJ Edition
+ Version 3.1.0.0  -  2026-07-27
+ Fork of the original CoJ2 Controller by S!lv3r and Tr!tu (GPLv3).
+===============================================================================
+
+This update makes admin authorization spoof-proof: admin ! commands are now
+granted by real in-game /adminlogin authentication (via a bundled server mod)
+instead of by matching a typed player name, and it fixes the map rotation
+getting out of sync when maps are changed outside of !mapgo.
+
+-------------------------------------------------------------------------------
+ NEW FEATURES
+-------------------------------------------------------------------------------
+
+* Authenticated admins (no more name spoofing)
+    Admin ! commands are now authorized by whoever has actually logged in with
+    /adminlogin in-game, not by matching the (spoofable) player name against the
+    Admins list. Naming yourself after an admin no longer grants any command.
+    - Authentication is done by the bundled server mod (version.dll), which
+      validates /adminlogin against the server's ServerAdmins.ini and publishes
+      the currently-authenticated admins to "authed_admins.txt".
+    - The manual Admins list still works as a FALLBACK when the mod is not
+      loaded, so nothing breaks on servers without the mod.
+    - The same check now also exempts real admins from the bad-word filter and
+      protects them from being !votekick'd.
+    - An admin's authorization is revoked the moment they leave or are kicked,
+      so a new player reusing their name cannot inherit it.
+
+* Bundled admin mod, auto-deployed
+    The version.dll admin mod now ships inside the single .exe and is copied
+    into your dedicated-server folder automatically the first time you point the
+    controller at it - no manual install. (Under Wine, launch the controller
+    with WINEDLLOVERRIDES="version=n,b" so the server loads it.)
+
+-------------------------------------------------------------------------------
+ CHANGES
+-------------------------------------------------------------------------------
+
+* !commandlist now shows the full admin command list to authenticated admins and
+  only the public commands to everyone else, driven by the same authentication.
+
+-------------------------------------------------------------------------------
+ BUG FIXES
+-------------------------------------------------------------------------------
+
+* Fixed the map rotation getting out of sync. The controller now reads which map
+  the server actually loaded (from the "Loading map <...>" line) and realigns its
+  tracked rotation to it. Changing maps with /mapset from the bare console (or via
+  the in-game mod) no longer leaves the controller a step behind; !mapgo and
+  /mapset can be used together without conflict.
+
+-------------------------------------------------------------------------------
+ NOTES
+-------------------------------------------------------------------------------
+
+* Supersedes the 3.0.0.0 note about admins: /adminlogin is now recognised (via
+  the mod). Adding names to the Admins list is only needed as a fallback for
+  servers that do not run the mod.
+
+* The mod is unpacked to a "mod" subfolder next to the exe and copied from there
+  into the server folder, so it is never loaded into the controller itself.
+
+===============================================================================
+ Version 3.0.0.1  -  2026-07-26
+===============================================================================
+
+* Single-exe compatibility fix: the embedded payload was changed from a ZIP
+  (which needs System.IO.Compression, only present on .NET 4.6+) to a simple
+  uncompressed container read with plain System.IO. The single .exe again runs
+  on .NET Framework 4.0 - e.g. under Wine with dotnet40 - like earlier versions.
+
+===============================================================================
+ CoJ2 Controller - IranCoJ Edition
  Version 3.0.0.0  -  2026-07-25
  Fork of the original CoJ2 Controller by S!lv3r and Tr!tu (GPLv3).
 ===============================================================================
