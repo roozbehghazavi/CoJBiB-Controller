@@ -161,6 +161,47 @@ Public Class frmConsola
         End Try
     End Sub
 
+    ' Snapshots the live rotation exactly as MapGo expects it: row 0 = current map,
+    ' each element {mapDisplay, modeDisplay}. Shared by !mapgo and !votemapgo.
+    Private Function BuildMapRows() As List(Of String())
+        Dim rows As New List(Of String())
+        For fila As Integer = 0 To dgMaps.Rows.Count - 1
+            Dim c0 = dgMaps.Rows(fila).Cells(0).Value
+            Dim c1 = dgMaps.Rows(fila).Cells(1).Value
+            rows.Add(New String() {If(c0 Is Nothing, "", c0.ToString()), If(c1 Is Nothing, "", c1.ToString())})
+        Next
+        Return rows
+    End Function
+
+    ' Performs a map jump exactly like the !mapgo command: resolves the target against
+    ' the live rotation, sets the server's map index (via MapGo.TryMapGo), rotates
+    ' dgMaps so the "Game ended!" from /mapnext lands on the target, then issues it.
+    ' Shared so !mapgo and a passed !votemapgo behave identically. The technical diag
+    ' stays in the local console; only the clean status is said to players.
+    Private Sub EjecutarMapGo(ByVal mapaArg As String, ByVal modoArg As String)
+        Dim rows As List(Of String()) = BuildMapRows()
+        Dim mensaje As String = ""
+        Dim diag As String = ""
+        Dim pasos As Integer = 0
+        Dim ok As Boolean = MapGo.TryMapGo(rows, mapaArg, modoArg, pasos, mensaje, diag)
+        If diag <> "" Then lbConsola.Items.Add(Mid(Date.Now, InStr(Date.Now, " ") + 1, 8) & " " & diag)
+        If ok Then
+            For k As Integer = 1 To pasos - 1
+                Dim mp = dgMaps.Rows(0).Cells(0).Value
+                Dim md = dgMaps.Rows(0).Cells(1).Value
+                dgMaps.Rows.Remove(dgMaps.Rows(0))
+                dgMaps.Rows.Add()
+                dgMaps.Rows(dgMaps.Rows.Count - 1).Cells(0).Value = mp
+                dgMaps.Rows(dgMaps.Rows.Count - 1).Cells(1).Value = md
+            Next
+            SendToConsole("/adminsay " & mensaje)
+            SendToConsole("/mapnext")
+        Else
+            SendToConsole("/adminsay " & mensaje)
+            lbConsola.Items.Add(Mid(Date.Now, InStr(Date.Now, " ") + 1, 8) & " " & mensaje)
+        End If
+    End Sub
+
     Public Sub CloseLogReader()
         gameLogReader.Close()
     End Sub
@@ -685,6 +726,7 @@ Public Class frmConsola
 
     'Variables para el control de cambio de mapa  mNextVotesYes mNextPlayersVoted mNextNeededVotes mNextVoteIsActive
     Dim mNextVotesYes As Integer = 0
+    Dim mNextVotesNo As Integer = 0
     Dim mNextPlayersVoted As String = ""
     Dim mNextNeededVotes As Integer = 0
     Dim mNextVoteIsActive As Boolean = False
@@ -813,14 +855,21 @@ Public Class frmConsola
                     If chkAutoKick.Checked AndAlso PlayerJoinOrLeave <> "" Then
                         Dim keyName As String = PlayerJoinOrLeave.ToLower()
                         If InStr(lineaLeida, "has been kicked") > 0 Then
+                            'No aplicamos el auto-kick temporal (5 min) a un jugador baneado: su
+                            'reingreso lo gestiona la lista de baneados (expulsión permanente), no
+                            'los 5 min, así no se le muestra "kicked recently" en lugar de "banned".
                             'No refrescamos si ya está: los 5 min cuentan desde la primera expulsión.
-                            If Not tempKicked.ContainsKey(keyName) Then
+                            If Not tempKicked.ContainsKey(keyName) AndAlso FindInListbox(lbBanned, PlayerJoinOrLeave) = False Then
                                 tempKicked(keyName) = Date.Now.AddMinutes(autoKickMinutes)
                             End If
                         ElseIf InStr(lineaLeida, "has joined the game") > 0 _
                             Or InStr(lineaLeida, "has joined the LAWMEN (blue) team") > 0 _
                             Or InStr(lineaLeida, "has joined the OUTLAWS (red) team") > 0 Then
-                            If tempKicked.ContainsKey(keyName) Then
+                            'Un baneado que reaparece lo expulsa el bloque de baneados (más abajo)
+                            'con mensaje de "banned"; aquí lo ignoramos para no pisarlo con "kicked recently".
+                            If tempKicked.ContainsKey(keyName) AndAlso FindInListbox(lbBanned, PlayerJoinOrLeave) = True Then
+                                tempKicked.Remove(keyName)
+                            ElseIf tempKicked.ContainsKey(keyName) Then
                                 If Date.Now < tempKicked(keyName) Then
                                     Dim minsLeft As Integer = CInt(Math.Ceiling((tempKicked(keyName) - Date.Now).TotalMinutes))
                                     SendToConsole("/kick " & PlayerJoinOrLeave & " auto-kick (recently kicked)")
@@ -1073,8 +1122,10 @@ Public Class frmConsola
                     If InStr(Player, """") > 0 Then
                         Player = Mid(Player, 1, InStr(Player, """") - 1)
                         If FindInListbox(lbBanned, Player) = True Then
-                            'ACTIVAR LA SIGUIENTE LINEA CUANDO SE QUIERA EMPEZAR A BANEAR
-                            SendToConsole("/kick " & Player & " Banned by Mod Coj Controller")
+                            'Baneado permanente (solo lo conoce el controlador): lo re-expulsamos
+                            'con /kick cada vez que reaparece, con un mensaje claro de baneo.
+                            SendToConsole("/kick " & Player & " Permanently banned - appeal at IranCoJ")
+                            SendToConsole("/adminsay " & Player & ": permanently banned. Appeal at IranCoJ.")
                         End If
                     End If
                 End If
@@ -1180,39 +1231,7 @@ Public Class frmConsola
                     If partes.Length >= 2 Then
                         Dim mapaArg As String = partes(0)
                         Dim modoArg As String = String.Join(" ", partes, 1, partes.Length - 1)
-
-                        'La rotación actual tal cual la lleva el controlador: fila 0 = mapa actual.
-                        Dim rows As New List(Of String())
-                        For fila As Integer = 0 To dgMaps.Rows.Count - 1
-                            Dim c0 = dgMaps.Rows(fila).Cells(0).Value
-                            Dim c1 = dgMaps.Rows(fila).Cells(1).Value
-                            rows.Add(New String() {If(c0 Is Nothing, "", c0.ToString()), If(c1 Is Nothing, "", c1.ToString())})
-                        Next
-
-                        Dim mensaje As String = ""
-                        Dim diag As String = ""
-                        Dim pasos As Integer = 0
-                        Dim ok As Boolean = MapGo.TryMapGo(rows, mapaArg, modoArg, pasos, mensaje, diag)
-                        'Registramos el diagnóstico solo en la consola local del controlador (no a los jugadores).
-                        If diag <> "" Then lbConsola.Items.Add(Mid(Date.Now, InStr(Date.Now, " ") + 1, 8) & " " & diag)
-                        If ok Then
-                            'Rotamos dgMaps (pasos-1) veces; el "Game ended!" del /mapnext hará la última
-                            'rotación y, si chkRememberMaps está activo, reescribirá el ini con el nuevo orden.
-                            For k As Integer = 1 To pasos - 1
-                                Dim mp = dgMaps.Rows(0).Cells(0).Value
-                                Dim md = dgMaps.Rows(0).Cells(1).Value
-                                dgMaps.Rows.Remove(dgMaps.Rows(0))
-                                dgMaps.Rows.Add()
-                                dgMaps.Rows(dgMaps.Rows.Count - 1).Cells(0).Value = mp
-                                dgMaps.Rows(dgMaps.Rows.Count - 1).Cells(1).Value = md
-                            Next
-                            SendToConsole("/adminsay " & mensaje)
-                            SendToConsole("/mapnext")
-                        Else
-                            'Motivo (limpio) al admin en el juego; el diagnóstico técnico queda solo en la consola local.
-                            SendToConsole("/adminsay " & mensaje)
-                            lbConsola.Items.Add(Mid(Date.Now, InStr(Date.Now, " ") + 1, 8) & " " & mensaje)
-                        End If
+                        EjecutarMapGo(mapaArg, modoArg)
                     End If
                 End If
 
@@ -1302,11 +1321,26 @@ Public Class frmConsola
                     SendToConsole("/adminsay " & commandActivAdLin3)
                 End If
 
-                If commandsEnabled And (InStr(lineaLeida, "!ban ") > 0 And chkBan.Checked = True And FindInListbox(lbBanned, Trim(Mid(lineaLeida, InStr(lineaLeida, "ban ") + 3, (Len(lineaLeida) - (InStr(lineaLeida, "ban ") + 2))))) = False) Then
-                    comando = Trim(Mid(lineaLeida, InStr(lineaLeida, "ban ") + 3, (Len(lineaLeida) - (InStr(lineaLeida, "ban ") + 2))))
-                    If FindInListbox(lbBanned, comando & " ") = False Then lbBanned.Items.Add(Mid(Date.Now.ToString, 1, 10) & "   " & comando & " ")
-                    Call WriteFileBanned()
-                    SendToConsole("/kick " & comando)
+                '!ban <name/id>: expulsión PERMANENTE. Igual que !kick manda /kick, pero
+                'además añade al jugador a la lista de baneados para que el controlador lo
+                'vuelva a expulsar cada vez que reaparezca (bloque "has joined the game"), sin
+                'límite de tiempo (a diferencia del auto-kick de 5 min de !kick). Acepta id o
+                'nombre como !kick; si se da un id se resuelve al nombre ACTUAL, porque la
+                'reexpulsión al reingresar se compara por NOMBRE (el id cambia entre sesiones).
+                If commandsEnabled And (InStr(lineaLeida, "!ban ") > 0 And chkBan.Checked = True) Then
+                    Dim banArg As String = Trim(Mid(lineaLeida, InStr(lineaLeida, "!ban ") + Len("!ban ")))
+                    If banArg <> "" Then
+                        Dim banName As String = ResolvePlayerName(banArg)
+                        If FindInListbox(lbBanned, banName) = False Then
+                            lbBanned.Items.Add(Mid(Date.Now.ToString, 1, 10) & "   " & banName & " ")
+                            Call WriteFileBanned()
+                        End If
+                        'Tanto !ban como !kick mandan /kick (el juego no tiene baneo propio; el
+                        'baneo solo existe en el controlador). La diferencia: al estar ya en la
+                        'lista de baneados, el auto-kick temporal de 5 min lo ignora (ver bloque
+                        '"has been kicked") y su reingreso se bloquea SIEMPRE, no 5 min.
+                        SendToConsole("/kick " & banArg & " Permanently banned - appeal at IranCoJ")
+                    End If
                 End If
 
                 If commandsEnabled And (InStr(lineaLeida, "!unban ") > 0 And chkUnban.Checked = True) Then
@@ -1423,12 +1457,17 @@ Public Class frmConsola
 
 
             If commandsEnabled And (InStr(lineaLeida, "!votemapnext") > 0 And mNextVoteIsActive = False And chkVotemapnext.Checked = True _
+               Or InStr(lineaLeida, "!votemapgo") > 0 And mNextVoteIsActive = False And chkVotemapgo.Checked = True _
                Or InStr(lineaLeida, "!votekick") > 0 And mNextVoteIsActive = False And chkVotekick.Checked = True) Then
                 playerInVote = ""
+                mapgoVoteMap = ""
+                mapgoVoteMode = ""
                 Dim line1 As String = ""
                 Dim line2 As String = ""
+                Dim voteReady As Boolean = False
                 mNextNeededVotes = 0
                 mNextVotesYes = 0
+                mNextVotesNo = 0
 
 
                 If PlayerLeido <> "SERVER" Then
@@ -1441,6 +1480,35 @@ Public Class frmConsola
                         line1 = "/adminsay Starting vote to change next map.  " & dgMaps.Rows(1).Cells(0).Value.ToString.Trim _
                           & dgMaps.Rows(1).Cells(1).Value.ToString.Trim & ".  45 seconds to vote."
                         line2 = "/adminsay Type '!vote yes' or '!vote no'.  (" & mNextVotesYes.ToString.Trim & "/" & mNextNeededVotes.ToString.Trim & " votes)"
+                        voteReady = True
+
+                    ElseIf InStr(lineaLeida, "!votemapgo") > 0 Then
+                        'Igual que !votemapnext pero saltando a un mapa concreto: "!votemapgo <map> <mode>".
+                        'El objetivo se resuelve AHORA (sin tocar la memoria del servidor) para no arrancar
+                        'un voto imposible; el salto real (MapGo.TryMapGo) se hace solo si el voto se aprueba.
+                        Dim vgArgs As String = Trim(Mid(lineaLeida, InStr(lineaLeida, "!votemapgo") + Len("!votemapgo")))
+                        Dim vgPartes() As String = vgArgs.Split(New Char() {" "c}, StringSplitOptions.RemoveEmptyEntries)
+                        If vgPartes.Length >= 2 Then
+                            Dim vgMap As String = vgPartes(0)
+                            Dim vgMode As String = String.Join(" ", vgPartes, 1, vgPartes.Length - 1)
+                            Dim vgRow As Integer = 0
+                            Dim vgMsg As String = ""
+                            If MapGo.ResolveTargetRow(BuildMapRows(), vgMap, vgMode, vgRow, vgMsg) Then
+                                CommandInVote = "!votemapgo"
+                                mapgoVoteMap = vgMap
+                                mapgoVoteMode = vgMode
+                                'Necesita más de la mitad de los jugadores del servidor (como votemapnext).
+                                mNextNeededVotes = (LbPlayers.Items.Count \ 2) + 1
+                                line1 = "/adminsay Starting vote to change map to " & vgMap & " " & vgMode & ".  45 seconds to vote."
+                                line2 = "/adminsay Type '!vote yes' or '!vote no'.  (" & mNextVotesYes.ToString.Trim & "/" & mNextNeededVotes.ToString.Trim & " votes)"
+                                voteReady = True
+                            Else
+                                'El objetivo no vale: informamos directamente (el voto no se inicia).
+                                SendToConsole("/adminsay Vote map: " & vgMsg)
+                            End If
+                        Else
+                            SendToConsole("/adminsay Usage: !votemapgo <map> <mode>")
+                        End If
 
                     ElseIf InStr(lineaLeida, "!votekick") > 0 Then
                         'El nombre es todo lo que sigue a "!votekick". Usamos Mid de dos
@@ -1458,13 +1526,19 @@ Public Class frmConsola
                             mNextNeededVotes = (LbPlayers.Items.Count \ 2) + 1
                             line1 = "/adminsay Starting vote to kick " & playerInVote & ".  45 seconds to vote."
                             line2 = "/adminsay Type '!vote yes' or '!vote no'.  (" & mNextVotesYes.ToString.Trim & "/" & mNextNeededVotes.ToString.Trim & " votes)"
+                            voteReady = True
                         Else
-                            line1 = "/adminsay Vote kick: player '" & playerInVote & "' not found."
+                            SendToConsole("/adminsay Vote kick: player '" & playerInVote & "' not found.")
                         End If
                     End If
 
-                    If FindInListbox(LbPlayers, playerInVote) = True And Not IsAdmin(playerInVote) Or InStr(lineaLeida, "!votemapnext") > 0 Then
+                    'Solo arrancamos el voto cuando una rama lo validó (voteReady). Antes se usaba
+                    'FindInListbox(LbPlayers, playerInVote) con playerInVote="" para votemapnext/mapgo,
+                    'que casaba con el espacio de cualquier fila y arrancaba votos vacíos (0/0), dejando
+                    'mNextVoteIsActive colgado y corrompiendo el siguiente !votemapnext.
+                    If voteReady Then
                         mNextVotesYes = 0
+                        mNextVotesNo = 0
                         mNextPlayersVoted = ""
 
                         If LbPlayers.Items.Count = 2 Then mNextNeededVotes = 2
@@ -1491,6 +1565,11 @@ Public Class frmConsola
                                           & " " & dgMaps.Rows(1).Cells(1).Value.ToString.Trim & "."
                         SendToConsole(line2)
 
+                    ElseIf CommandInVote = "!votemapgo" Then
+                        line2 = "/adminsay Type '!vote yes' or '!vote no'.  (" & mNextVotesYes.ToString.Trim & "/" & mNextNeededVotes.ToString.Trim & " votes).  " & CountDownVotes.ToString.Trim & " seconds remaining" _
+                                          & " to change map to " & mapgoVoteMap & " " & mapgoVoteMode & "."
+                        SendToConsole(line2)
+
                     ElseIf CommandInVote = "!votekick" Then
                         line2 = "/adminsay Type '!vote yes' or '!vote no'.  (" & mNextVotesYes.ToString.Trim & "/" & mNextNeededVotes.ToString.Trim & " votes).  " & CountDownVotes.ToString.Trim & " seconds remaining" _
                                           & " to KICK to the player '" & playerInVote & "'."
@@ -1503,6 +1582,10 @@ Public Class frmConsola
                         If CommandInVote = "!votemapnext" Then
                             SendToConsole("/mapnext")
                             SendToConsole("/adminsay Vote Passed.  (" & mNextVotesYes.ToString.Trim & "/" & mNextNeededVotes.ToString.Trim & " votes)")
+                        ElseIf CommandInVote = "!votemapgo" Then
+                            SendToConsole("/adminsay Vote Passed.  (" & mNextVotesYes.ToString.Trim & "/" & mNextNeededVotes.ToString.Trim & " votes)")
+                            'Ejecuta el salto igual que el comando !mapgo (fija el índice del server y rota dgMaps).
+                            EjecutarMapGo(mapgoVoteMap, mapgoVoteMode)
                         ElseIf CommandInVote = "!votekick" Then
                             If FindInListbox(lbBanned, playerInVote) = False And Not IsAdmin(playerInVote) Then
                                 SendToConsole("/kick " & playerInVote & " kick by players' votes")
@@ -1515,6 +1598,23 @@ Public Class frmConsola
                     End If
                 End If
 
+            End If
+
+            '!vote no: cuenta el voto en contra (un voto por jugador, no puede votar sí y no).
+            'Filtramos el eco del recordatorio del controlador ("Type '!vote yes' or '!vote no'")
+            'con la misma guarda que el bloque de "yes" para no contarlo como voto. Si la mayoría
+            'vota no, el voto ya no puede pasar y lo cerramos en el momento.
+            If commandsEnabled And (InStr(lineaLeida, "!vote no") > 0 And mNextVoteIsActive = True And InStr(lineaLeida, "Type '!vote yes'") = 0) Then
+                If InStr(mNextPlayersVoted, PlayerLeido & " ") = 0 Then
+                    mNextVotesNo = mNextVotesNo + 1
+                    mNextPlayersVoted = mNextPlayersVoted & PlayerLeido & " "
+                    SendToConsole("/adminsay Vote: " & mNextVotesYes.ToString.Trim & " yes / " & mNextVotesNo.ToString.Trim & " no  (need " & mNextNeededVotes.ToString.Trim & " yes).  " & CountDownVotes.ToString.Trim & "s left.")
+                    If mNextVotesNo >= mNextNeededVotes Then
+                        SendToConsole("/adminsay Vote not Passed.  (" & mNextVotesYes.ToString.Trim & " yes / " & mNextVotesNo.ToString.Trim & " no).  Majority voted no.")
+                        TimerVote.Enabled = False
+                        mNextVoteIsActive = False
+                    End If
+                End If
             End If
 
             'mNextVoteIsActive = False
@@ -1554,6 +1654,10 @@ Public Class frmConsola
 
     'Contendrá lo que estamos votando (!votemapnext, !voteban player, !votekick player/id)
     Dim CommandInVote As String = ""
+    'Mapa/modo objetivo de un !votemapgo en curso (se resuelve al iniciar el voto y se
+    'ejecuta con EjecutarMapGo si el voto se aprueba). Vacío = no hay votemapgo activo.
+    Dim mapgoVoteMap As String = ""
+    Dim mapgoVoteMode As String = ""
     Dim CountDownVotes As Integer = 48
     Private Sub TimerVote_Tick(sender As Object, e As EventArgs) Handles TimerVote.Tick
         If CountDownVotes <= 0 Then
@@ -1567,6 +1671,9 @@ Public Class frmConsola
             If CommandInVote = "!votemapnext" Then
                 SendToConsole("/adminsay (" & mNextVotesYes.ToString.Trim & "/" & mNextNeededVotes.ToString.Trim & " votes). 20 seconds remaining" _
                          & " to change to next map.  " & dgMaps.Rows(1).Cells(0).Value.ToString.Trim & " " & dgMaps.Rows(1).Cells(1).Value.ToString.Trim & ".")
+            ElseIf CommandInVote = "!votemapgo" Then
+                SendToConsole("/adminsay (" & mNextVotesYes.ToString.Trim & "/" & mNextNeededVotes.ToString.Trim & " votes). 20 seconds remaining" _
+                         & " to change map to " & mapgoVoteMap & " " & mapgoVoteMode & ".")
             ElseIf CommandInVote = "!votekick" Then
                 SendToConsole("/adminsay Type '!vote yes' or '!vote no'.  (" & mNextVotesYes.ToString.Trim & "/" & mNextNeededVotes.ToString.Trim & " votes).  " & CountDownVotes.ToString.Trim & " seconds remaining" _
                                           & " to KICK to the player '" & playerInVote & "'.")
@@ -1988,7 +2095,7 @@ Public Class frmConsola
     '***************************************************************************************
 
     'Chk para permitir o No, comandos de consola
-    Private Sub chkCommandlistAd_CheckedChanged(sender As Object, e As EventArgs) Handles chkMapnext.CheckedChanged, chkMapgo.CheckedChanged, chkCommandlistAd.CheckedChanged, chkNewadmin.CheckedChanged, chkKick.CheckedChanged, chkKill.CheckedChanged, chkBan.CheckedChanged, chkUnban.CheckedChanged, chkBanlist.CheckedChanged, chkPlayerlistAd.CheckedChanged, chkServershutdown.CheckedChanged, chkRestart.CheckedChanged, chkAdminsay.CheckedChanged, chkCommandlist.CheckedChanged, chkPlayerlist.CheckedChanged, chkVotemapnext.CheckedChanged, chkVoteBan.CheckedChanged, chkVotekick.CheckedChanged, chkMaplist.CheckedChanged, chkBalanceAd.CheckedChanged
+    Private Sub chkCommandlistAd_CheckedChanged(sender As Object, e As EventArgs) Handles chkMapnext.CheckedChanged, chkMapgo.CheckedChanged, chkCommandlistAd.CheckedChanged, chkNewadmin.CheckedChanged, chkKick.CheckedChanged, chkKill.CheckedChanged, chkBan.CheckedChanged, chkUnban.CheckedChanged, chkBanlist.CheckedChanged, chkPlayerlistAd.CheckedChanged, chkServershutdown.CheckedChanged, chkRestart.CheckedChanged, chkAdminsay.CheckedChanged, chkCommandlist.CheckedChanged, chkPlayerlist.CheckedChanged, chkVotemapnext.CheckedChanged, chkVotemapgo.CheckedChanged, chkVoteBan.CheckedChanged, chkVotekick.CheckedChanged, chkMaplist.CheckedChanged, chkBalanceAd.CheckedChanged
         If FormCargado = False Then
             Exit Sub
         End If
@@ -2020,6 +2127,7 @@ Public Class frmConsola
         writer.WriteLine(chkVotekick.Checked)
         writer.WriteLine(chkVoteBan.Checked)
         writer.WriteLine(chkMapgo.Checked)
+        writer.WriteLine(chkVotemapgo.Checked)
         writer.Close()
 
         Call CreaListaComandosActivos()
@@ -2056,6 +2164,9 @@ Public Class frmConsola
                 'si la línea no existe (config antigua) se conserva el valor por defecto.
                 Dim mapgoLine As String = readerConfig.ReadLine()
                 If mapgoLine IsNot Nothing Then chkMapgo.Checked = CBool(mapgoLine)
+                'Nuevo: !votemapgo. También al final por la misma razón.
+                Dim votemapgoLine As String = readerConfig.ReadLine()
+                If votemapgoLine IsNot Nothing Then chkVotemapgo.Checked = CBool(votemapgoLine)
             Catch ex As Exception
 
             End Try
@@ -2078,13 +2189,13 @@ Public Class frmConsola
             commandActivAdLin1 = commandActivAdLin1 & "!kill  -  "
         End If
         If chkKick.Checked = True Then
-            commandActivAdLin1 = commandActivAdLin1 & "!kick  -  "
+            commandActivAdLin1 = commandActivAdLin1 & "!kick <name/id>  -  "
         End If
         If chkBan.Checked = True Then
-            commandActivAdLin1 = commandActivAdLin1 & "!ban  -  "
+            commandActivAdLin1 = commandActivAdLin1 & "!ban <name/id>  -  "
         End If
         If chkUnban.Checked = True Then
-            commandActivAdLin1 = commandActivAdLin1 & "!unban  -  "
+            commandActivAdLin1 = commandActivAdLin1 & "!unban <name>  -  "
         End If
         If chkBanlist.Checked = True Then
             commandActivAdLin1 = commandActivAdLin1 & "!banlist  -  "
@@ -2119,6 +2230,11 @@ Public Class frmConsola
         If chkVotemapnext.Checked = True Then
             commandActivAdLin1 = commandActivAdLin1 & "!votemapnext  -  "
             commandActivGeneral = commandActivGeneral & "!votemapnext  -  "
+        End If
+        '!votemapgo tiene su propio toggle (Panel2, comandos para todos los jugadores).
+        If chkVotemapgo.Checked = True Then
+            commandActivAdLin1 = commandActivAdLin1 & "!votemapgo <map> <mode>  -  "
+            commandActivGeneral = commandActivGeneral & "!votemapgo <map> <mode>  -  "
         End If
         If chkMaplist.Checked = True Then
             commandActivGeneral = commandActivGeneral & "!maplist  -  "
@@ -2761,6 +2877,26 @@ Public Class frmConsola
             End If
         Next
         Return False
+    End Function
+
+    ' Resolves a !kick/!ban argument to a player NAME. If the argument is a numeric id
+    ' that matches a currently-connected player in LbPlayers ("<id>    -  <name>"), the
+    ' current name is returned; otherwise the argument is returned unchanged (already a
+    ' name, or an id with no connected player). Used so !ban stores a name - the banlist
+    ' re-kick on rejoin matches by name, since server ids are per-session.
+    Private Function ResolvePlayerName(ByVal arg As String) As String
+        arg = Trim(arg)
+        Dim id As Integer
+        If arg <> "" AndAlso Integer.TryParse(arg, id) Then
+            For i As Integer = 0 To LbPlayers.Items.Count - 1
+                Dim item As String = LbPlayers.Items(i).ToString()
+                Dim dashPos As Integer = InStr(item, "-")
+                If dashPos > 0 Then
+                    If Trim(Mid(item, 1, dashPos - 1)) = arg Then Return Trim(Mid(item, dashPos + 1))
+                End If
+            Next
+        End If
+        Return arg
     End Function
 
 

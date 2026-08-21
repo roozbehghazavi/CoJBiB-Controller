@@ -121,6 +121,7 @@ Partial Class frmConsola
         Me.chkVotekick = New System.Windows.Forms.CheckBox()
         Me.chkMaplist = New System.Windows.Forms.CheckBox()
         Me.chkVotemapnext = New System.Windows.Forms.CheckBox()
+        Me.chkVotemapgo = New System.Windows.Forms.CheckBox()
         Me.chkPlayerlist = New System.Windows.Forms.CheckBox()
         Me.chkCommandlist = New System.Windows.Forms.CheckBox()
         Me.chkCommandlistAd = New System.Windows.Forms.CheckBox()
@@ -1323,6 +1324,7 @@ Partial Class frmConsola
         Me.Panel2.Controls.Add(Me.chkVotekick)
         Me.Panel2.Controls.Add(Me.chkMaplist)
         Me.Panel2.Controls.Add(Me.chkVotemapnext)
+        Me.Panel2.Controls.Add(Me.chkVotemapgo)
         Me.Panel2.Controls.Add(Me.chkPlayerlist)
         Me.Panel2.Controls.Add(Me.chkCommandlist)
         Me.Panel2.Location = New System.Drawing.Point(234, -1)
@@ -1365,6 +1367,22 @@ Partial Class frmConsola
         Me.chkVotekick.Text = "!votekick <name/id>"
         Me.ToolTip1.SetToolTip(Me.chkVotekick, "Starts a round of voting to kick out to the player written below.")
         Me.chkVotekick.UseVisualStyleBackColor = True
+        '
+        'chkVotemapgo
+        '
+        Me.chkVotemapgo.AutoSize = True
+        Me.chkVotemapgo.Checked = True
+        Me.chkVotemapgo.CheckState = System.Windows.Forms.CheckState.Checked
+        Me.chkVotemapgo.Font = New System.Drawing.Font("Segoe UI", 6.886957!, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, CType(0, Byte))
+        Me.chkVotemapgo.ForeColor = System.Drawing.Color.FromArgb(CType(CType(125, Byte), Integer), CType(CType(18, Byte), Integer), CType(CType(18, Byte), Integer))
+        Me.chkVotemapgo.Location = New System.Drawing.Point(6, 82)
+        Me.chkVotemapgo.Margin = New System.Windows.Forms.Padding(2)
+        Me.chkVotemapgo.Name = "chkVotemapgo"
+        Me.chkVotemapgo.Size = New System.Drawing.Size(122, 16)
+        Me.chkVotemapgo.TabIndex = 68
+        Me.chkVotemapgo.Text = "!votemapgo <map> <mode>"
+        Me.ToolTip1.SetToolTip(Me.chkVotemapgo, "Starts a round of voting to jump to a specific map/mode (uses the !mapgo engine when the vote passes).")
+        Me.chkVotemapgo.UseVisualStyleBackColor = True
         '
         'chkMaplist
         '
@@ -2598,6 +2616,7 @@ Partial Class frmConsola
     Friend WithEvents Label14 As System.Windows.Forms.Label
     Friend WithEvents Panel2 As System.Windows.Forms.Panel
     Friend WithEvents chkVotemapnext As System.Windows.Forms.CheckBox
+    Friend WithEvents chkVotemapgo As System.Windows.Forms.CheckBox
     Friend WithEvents chkPlayerlist As System.Windows.Forms.CheckBox
     Friend WithEvents chkCommandlist As System.Windows.Forms.CheckBox
     Friend WithEvents chkCommandlistAd As System.Windows.Forms.CheckBox

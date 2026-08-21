@@ -92,52 +92,14 @@ Module MapGo
     Public Function TryMapGo(ByVal rows As List(Of String()), ByVal mapArg As String, ByVal modeArg As String,
                              ByRef stepsToTarget As Integer, ByRef resultMsg As String, ByRef diagMsg As String) As Boolean
 
-        mapArg = Trim(mapArg)
-        modeArg = Trim(modeArg)
         stepsToTarget = 0
         diagMsg = ""
 
-        If mapArg = "" Or modeArg = "" Then
-            resultMsg = "!mapgo usage: !mapgo <map> <mode>"
-            Return False
-        End If
-
-        Dim wantedMode As String = ResolveMode(modeArg)
-        If wantedMode = "" Then
-            resultMsg = "!mapgo: unknown mode '" & modeArg & "'"
-            Return False
-        End If
-
+        ' Pure half: validate the arguments and locate the target row ahead of row 0.
+        ' Kept separate so a !votemapgo can pre-validate WITHOUT the memory write below.
+        Dim r As Integer = 0
+        If Not ResolveTargetRow(rows, mapArg, modeArg, r, resultMsg) Then Return False
         Dim count As Integer = rows.Count
-        If count = 0 Then
-            resultMsg = "!mapgo: map list is empty"
-            Return False
-        End If
-
-        Dim wantedMap As String = NormalizeMap(mapArg)
-
-        ' Row 0 is the current map; find the next occurrence of the target ahead of it.
-        Dim r As Integer = -1
-        Dim matchesCurrent As Boolean = False
-        For i As Integer = 0 To count - 1
-            If NormalizeMap(rows(i)(0)) = wantedMap AndAlso ResolveMode(StripMode(rows(i)(1))) = wantedMode Then
-                If i = 0 Then
-                    matchesCurrent = True
-                Else
-                    r = i
-                    Exit For
-                End If
-            End If
-        Next
-
-        If r < 0 Then
-            If matchesCurrent Then
-                resultMsg = "!mapgo: '" & mapArg & " " & modeArg & "' is already the current map"
-            Else
-                resultMsg = "!mapgo: '" & mapArg & " " & modeArg & "' is not in the map rotation"
-            End If
-            Return False
-        End If
 
         ' Locate the live process/module, read the current index, and set it so the next
         ' advance ("index = (index + 1) % count; load") lands r steps ahead on the target.
@@ -186,6 +148,68 @@ Module MapGo
             CloseHandle(hProc)
         End Try
 
+    End Function
+
+    ''' <summary>
+    ''' Pure resolution half of <see cref="TryMapGo"/>: validates the arguments and
+    ''' locates the target map/mode in the rotation AHEAD of row 0 (the current map),
+    ''' without touching the running server. On success <paramref name="rowIndex"/> is
+    ''' the offset from row 0 (&gt;=1). Used to pre-validate a "!votemapgo &lt;map&gt;
+    ''' &lt;mode&gt;" before starting a vote - TryMapGo itself writes the server's
+    ''' map-index counter, so it must not be run merely to check a target.
+    ''' Returns False with a player-facing reason in <paramref name="resultMsg"/> when
+    ''' the mode/map is unknown, the list is empty, or the map is only the current one.
+    ''' </summary>
+    Public Function ResolveTargetRow(ByVal rows As List(Of String()), ByVal mapArg As String, ByVal modeArg As String,
+                                     ByRef rowIndex As Integer, ByRef resultMsg As String) As Boolean
+        rowIndex = 0
+        mapArg = Trim(mapArg)
+        modeArg = Trim(modeArg)
+
+        If mapArg = "" Or modeArg = "" Then
+            resultMsg = "!mapgo usage: !mapgo <map> <mode>"
+            Return False
+        End If
+
+        Dim wantedMode As String = ResolveMode(modeArg)
+        If wantedMode = "" Then
+            resultMsg = "!mapgo: unknown mode '" & modeArg & "'"
+            Return False
+        End If
+
+        Dim count As Integer = rows.Count
+        If count = 0 Then
+            resultMsg = "!mapgo: map list is empty"
+            Return False
+        End If
+
+        Dim wantedMap As String = NormalizeMap(mapArg)
+
+        ' Row 0 is the current map; find the next occurrence of the target ahead of it.
+        Dim r As Integer = -1
+        Dim matchesCurrent As Boolean = False
+        For i As Integer = 0 To count - 1
+            If NormalizeMap(rows(i)(0)) = wantedMap AndAlso ResolveMode(StripMode(rows(i)(1))) = wantedMode Then
+                If i = 0 Then
+                    matchesCurrent = True
+                Else
+                    r = i
+                    Exit For
+                End If
+            End If
+        Next
+
+        If r < 0 Then
+            If matchesCurrent Then
+                resultMsg = "!mapgo: '" & mapArg & " " & modeArg & "' is already the current map"
+            Else
+                resultMsg = "!mapgo: '" & mapArg & " " & modeArg & "' is not in the map rotation"
+            End If
+            Return False
+        End If
+
+        rowIndex = r
+        Return True
     End Function
 
     ''' <summary>
