@@ -110,7 +110,7 @@ Public Class frmConsola
                 If nm <> "" AndAlso nm <> playerName Then kept.Add(ln)
             Next
             Dim tmp As String = f & ".tmp"
-            System.IO.File.WriteAllLines(tmp, kept.ToArray(), New Text.UTF8Encoding(False))
+            System.IO.File.WriteAllLines(tmp, kept.ToArray(), New System.Text.UTF8Encoding(False))
             System.IO.File.Replace(tmp, f, Nothing)
             ' Our own write bumps the mtime; sync the cache stamp so RefreshAuthedAdmins
             ' doesn't needlessly re-read the file we just wrote.
@@ -730,6 +730,12 @@ Public Class frmConsola
     Dim mNextPlayersVoted As String = ""
     Dim mNextNeededVotes As Integer = 0
     Dim mNextVoteIsActive As Boolean = False
+    ' --- Music stream commands (admin-only) -> voicechat relay's watched command file.
+    ' The relay reads this file and acts on the exact command line (play <f>.mp3 / loop <f>.mp3
+    ' / folder / skip / stop), so we write ONLY that line - no extra tokens. music_cmd.txt is
+    ' mounted into the controller's OWN folder, so the path is just next to the .exe. Change
+    ' this one line if you mount it elsewhere. See WriteMusicCommand for the atomic write.
+    Dim musicCmdPath As String = Application.StartupPath & "\music_cmd.txt"
     Dim changedTeam As Boolean = False
     Dim playerInVote As String = ""
 
@@ -1235,6 +1241,43 @@ Public Class frmConsola
                     End If
                 End If
 
+                ' --- Music stream (admin-only, no toggle box). Writes a command to the
+                ' voicechat relay's mounted command file via WriteMusicCommand. The relay
+                ' parses "<verb> <file>" (verb + rest-of-line as filename), so we match its
+                ' exact vocabulary and append ".mp3" to the song name the admin typed:
+                '   !playmusic <song>          -> play <song>.mp3      (play once)
+                '   !playmusic <song> loop     -> loop <song>.mp3      (repeat that track)
+                '   !playmusic                 -> folder               (whole folder, looping)
+                '   !stopmusic                 -> stop
+                '   !skipmusic                 -> skip
+                ' Order matters (stop/skip before play) and the /adminsay confirmations avoid the
+                ' '!...music' trigger words so their console echo can't re-fire the handler.
+                If commandsEnabled And InStr(lineaLeida, "!stopmusic") > 0 Then
+                    WriteMusicCommand("stop")
+                    SendToConsole("/adminsay Music: stopped.")
+                ElseIf commandsEnabled And InStr(lineaLeida, "!skipmusic") > 0 Then
+                    WriteMusicCommand("skip")
+                    SendToConsole("/adminsay Music: skipped to next track.")
+                ElseIf commandsEnabled And InStr(lineaLeida, "!playmusic") > 0 Then
+                    Dim musicArgs As String = Trim(Mid(lineaLeida, InStr(lineaLeida, "!playmusic") + Len("!playmusic")))
+                    If musicArgs = "" Then
+                        WriteMusicCommand("folder")
+                        SendToConsole("/adminsay Music: playing the whole folder.")
+                    Else
+                        Dim musicTok() As String = musicArgs.Split(New Char() {" "c}, StringSplitOptions.RemoveEmptyEntries)
+                        Dim song As String = musicTok(0)
+                        If LCase(song).EndsWith(".mp3") = False Then song = song & ".mp3"
+                        Dim loopMode As Boolean = (musicTok.Length >= 2 AndAlso LCase(musicTok(1)) = "loop")
+                        If loopMode Then
+                            WriteMusicCommand("loop " & song)
+                            SendToConsole("/adminsay Music: now playing " & song & " (loop).")
+                        Else
+                            WriteMusicCommand("play " & song)
+                            SendToConsole("/adminsay Music: now playing " & song & ".")
+                        End If
+                    End If
+                End If
+
                 If InStr(lineaLeida, "!balance yes") > 0 Then
                     chkBalance.Checked = True
                 End If
@@ -1456,7 +1499,16 @@ Public Class frmConsola
             End If
 
 
-            If commandsEnabled And (InStr(lineaLeida, "!votemapnext") > 0 And mNextVoteIsActive = False And chkVotemapnext.Checked = True _
+            ' The vote-start runs for EVERY player (unlike admin commands, which the
+            ' IsAdmin(PlayerLeido) gate shields from the controller's own console echoes). Without
+            ' a guard, the !commandlist output - which prints "!votemapgo <map> <mode>", "!votekick",
+            ' "!votemapnext" as text - echoes back and re-fires this block (e.g. parsing the literal
+            ' "<mode>" and replying "unknown mode"). Two guards prevent that: the initiator must be a
+            ' currently-connected player (an echo's scraped name is a placeholder like "map", never a
+            ' real player), and the line must not carry the command-list separator "  -  " (a genuine
+            ' single command never contains it).
+            If commandsEnabled And InStr(lineaLeida, "  -  ") = 0 And FindInListbox(LbPlayers, PlayerLeido) = True _
+               And (InStr(lineaLeida, "!votemapnext") > 0 And mNextVoteIsActive = False And chkVotemapnext.Checked = True _
                Or InStr(lineaLeida, "!votemapgo") > 0 And mNextVoteIsActive = False And chkVotemapgo.Checked = True _
                Or InStr(lineaLeida, "!votekick") > 0 And mNextVoteIsActive = False And chkVotekick.Checked = True) Then
                 playerInVote = ""
@@ -2249,6 +2301,8 @@ Public Class frmConsola
         If chkAddWord.Checked = True Then
             commandActivAdLin1 = commandActivAdLin1 & "!addword <word> -  "
         End If
+        ' Music stream commands: admin-only, no toggle, so always listed.
+        commandActivAdLin1 = commandActivAdLin1 & "!playmusic <song> [loop]  -  !stopmusic  -  !skipmusic  -  "
 
         Dim letra As String = ""
         Dim positionLetra As Integer = 100
@@ -2898,6 +2952,22 @@ Public Class frmConsola
         End If
         Return arg
     End Function
+
+    ' Writes ONE command line to the voicechat relay's command file (musicCmdPath). Overwrites
+    ' (never appends) so the relay always reads the intended command, and writes IN PLACE
+    ' (truncate + rewrite the same file), NOT via a temp file + rename. This matters because
+    ' music_cmd.txt is a SINGLE-FILE Docker bind mount shared with the relay container: a
+    ' rename would swap in a new inode that the container's mount can't see, leaving the relay
+    ' stuck on the old content. An in-place truncate keeps the same inode, so the relay sees
+    ' the change. The payload is one tiny line the relay parses verbatim (no extra tokens); a
+    ' torn read is a non-issue at the relay's 1s poll for a few bytes.
+    Private Sub WriteMusicCommand(ByVal cmd As String)
+        Try
+            File.WriteAllText(musicCmdPath, cmd & vbLf)
+        Catch ex As Exception
+            lbConsola.Items.Add(Mid(Date.Now, InStr(Date.Now, " ") + 1, 8) & " music cmd write failed: " & ex.Message)
+        End Try
+    End Sub
 
 
     'Subrutina para Ordenar los ListBox cuando añadimos un item

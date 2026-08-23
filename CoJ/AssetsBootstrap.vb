@@ -52,7 +52,7 @@ Public Module AssetsBootstrap
                 Using br As New BinaryReader(s)
                     While br.BaseStream.Position < br.BaseStream.Length
                         Dim pathLen As Integer = br.ReadInt32()
-                        Dim rel As String = Text.Encoding.UTF8.GetString(br.ReadBytes(pathLen))
+                        Dim rel As String = System.Text.Encoding.UTF8.GetString(br.ReadBytes(pathLen))
                         Dim dataLen As Long = br.ReadInt64()
                         Dim data() As Byte = br.ReadBytes(CInt(dataLen))   ' bundled files are well under 2 GB
                         rel = rel.Replace("/"c, Path.DirectorySeparatorChar).Replace("\"c, Path.DirectorySeparatorChar)

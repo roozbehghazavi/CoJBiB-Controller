@@ -1,5 +1,97 @@
 ===============================================================================
  CoJ2 Controller - IranCoJ Edition
+ Version 3.3.0.0  -  2026-08-23
+ Fork of the original CoJ2 Controller by S!lv3r and Tr!tu (GPLv3).
+===============================================================================
+
+This update adds admin music-stream controls that drive the IranCoJ VoiceChat
+mod's music player from in-game chat, by writing to a command file the relay
+watches.
+
+-------------------------------------------------------------------------------
+ NEW FEATURES
+-------------------------------------------------------------------------------
+
+* Music stream commands (NEW admin commands)
+    Control the VoiceChat mod's music player straight from in-game chat. The
+    controller writes the command to a "music_cmd.txt" file that the VoiceChat
+    relay watches and acts on. Admin-only; no on/off toggle; listed in
+    !commandlist.
+      !playmusic <song>          Play a track once. Type just the name (no
+                                 extension); ".mp3" is added. e.g. !playmusic 1
+      !playmusic <song> loop     Play that track on repeat.
+      !playmusic                 (no arguments) play the whole music folder.
+      !stopmusic                 Stop playback.
+      !skipmusic                 Skip to the next track (in folder mode).
+    - Mount music_cmd.txt into the controller's own folder (next to the exe);
+      the same host file is mounted into the VoiceChat relay container so a
+      write from the controller is picked up by the relay.
+    - Writes are atomic (temp file + rename) so the relay never reads a
+      half-written command; the exact command line the relay expects is written
+      verbatim (play/loop/folder/skip/stop), with no extra tokens.
+
+-------------------------------------------------------------------------------
+ BUG FIXES
+-------------------------------------------------------------------------------
+
+* Fixed a build-time ambiguity ("'Text' is ambiguous") on the plain .NET
+  Framework 4.0 toolchain by fully qualifying two System.Text references. No
+  behaviour change; the shipped program is unaffected.
+
+-------------------------------------------------------------------------------
+ NOTES
+-------------------------------------------------------------------------------
+
+* If the relay stops seeing updates, mount the containing FOLDER rather than the
+  single music_cmd.txt file - a single-file bind mount can pin the old inode so
+  a rename over it is not seen inside the container.
+
+===============================================================================
+ CoJ2 Controller - IranCoJ Edition
+ Version 3.2.0.0  -  2026-08-16
+ Fork of the original CoJ2 Controller by S!lv3r and Tr!tu (GPLv3).
+===============================================================================
+
+This update adds a player-voted instant map jump and turns !ban into a real
+permanent ban that is separate from the temporary auto-kick.
+
+-------------------------------------------------------------------------------
+ NEW FEATURES
+-------------------------------------------------------------------------------
+
+* !votemapgo <map> <mode>  (NEW public command)
+    Lets players start a vote to jump straight to a specific map, the voted
+    equivalent of the admin !mapgo. When the vote passes, the controller
+    performs the exact same map jump !mapgo does.
+    - Has its own on/off toggle in "Commands for all players" ("!votemapgo").
+    - The target map/mode is validated when the vote STARTS, so a bad map name
+      is rejected up front instead of failing silently after the vote.
+
+* !ban is now a real PERMANENT ban (separate from auto-kick)
+    !ban <name/id> now keeps a player out for good, not just the 5-minute
+    auto-kick window that !kick uses.
+    - !ban <name/id>   Kicks the player and adds them to the controller's ban
+                       list; every time they rejoin they are kicked again, with
+                       the message "Permanently banned - appeal at IranCoJ".
+    - !unban <name>    Removes a player from the ban list.
+    - Both !kick and !ban issue the game's /kick (the game has no native ban);
+      the difference is bookkeeping: a banned player is excluded from the
+      5-minute auto-kick and blocked on every rejoin instead.
+
+-------------------------------------------------------------------------------
+ BUG FIXES
+-------------------------------------------------------------------------------
+
+* !vote no is now counted. Previously only "!vote yes" was tallied for
+  !votemapnext, !votemapgo and !votekick; a "no" majority now ends the vote
+  immediately as not passed.
+
+* Fixed vote counting getting corrupted after a failed vote. A failed
+  !votemapgo could leave a phantom "0/0" vote active that broke the next
+  !votemapnext; votes now only start once fully validated.
+
+===============================================================================
+ CoJ2 Controller - IranCoJ Edition
  Version 3.1.0.0  -  2026-07-27
  Fork of the original CoJ2 Controller by S!lv3r and Tr!tu (GPLv3).
 ===============================================================================
