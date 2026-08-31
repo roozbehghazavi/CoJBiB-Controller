@@ -1,5 +1,51 @@
 ===============================================================================
  CoJ2 Controller - IranCoJ Edition
+ Version 3.3.1.0  -  2026-08-31
+ Fork of the original CoJ2 Controller by S!lv3r and Tr!tu (GPLv3).
+===============================================================================
+
+This update adds a music-shuffle command and closes a vote-fraud hole where
+renaming let a player vote repeatedly.
+
+-------------------------------------------------------------------------------
+ NEW FEATURES
+-------------------------------------------------------------------------------
+
+* !shufflemusic  (NEW admin command)
+    Shuffles the VoiceChat mod's music folder. Admin-only, no toggle; writes
+    "shuffle" to music_cmd.txt like the other music commands, and is listed in
+    !commandlist.
+
+-------------------------------------------------------------------------------
+ BUG FIXES
+-------------------------------------------------------------------------------
+
+* Votes are now counted per unique player id, not per name. A player could
+  previously vote as many times as they liked by changing name with /nick
+  (which prints nothing to the console, so the old name-based tally never saw
+  it as the same player). Votes are now tracked by the player's unique id, and
+  the roster is refreshed when a vote starts. If a name cannot be matched to a
+  current id (e.g. after a /nick the controller never saw), that vote is
+  ignored rather than counted - closing the exploit in the safe direction.
+
+* !commandlist no longer runs off the end of the last line for admins. CoJ
+  chat shows at most 3 lines, and the admin list had grown past them once the
+  music commands were added; the longest argument hints (!mapgo, !votemapgo,
+  !playmusic) were shortened in the admin list so everything fits. The commands
+  still accept the same arguments.
+
+-------------------------------------------------------------------------------
+ NOTES
+-------------------------------------------------------------------------------
+
+* A player who renames mid-game with /nick will not be recognised for votes (or
+  admin commands) under the new name until the controller sees that name mapped
+  to an id - normally on their next reconnect. This is intentional: /nick is
+  invisible to the controller, so tying identity to the unique id is what makes
+  the vote counting spoof-proof.
+
+===============================================================================
+ CoJ2 Controller - IranCoJ Edition
  Version 3.3.0.0  -  2026-08-23
  Fork of the original CoJ2 Controller by S!lv3r and Tr!tu (GPLv3).
 ===============================================================================

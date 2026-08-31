@@ -728,6 +728,11 @@ Public Class frmConsola
     Dim mNextVotesYes As Integer = 0
     Dim mNextVotesNo As Integer = 0
     Dim mNextPlayersVoted As String = ""
+    ' Voters are tracked by UNIQUE player id, not by name: /nick changes a player's
+    ' name silently (no console output), so a name-only dedup let a renamed player vote
+    ' again and again. mNextIdsVoted holds the ids that already voted, each wrapped in
+    ' spaces (" 3 ") so id "3" never matches inside "13". See ResolvePlayerId.
+    Dim mNextIdsVoted As String = ""
     Dim mNextNeededVotes As Integer = 0
     Dim mNextVoteIsActive As Boolean = False
     ' --- Music stream commands (admin-only) -> voicechat relay's watched command file.
@@ -1250,14 +1255,18 @@ Public Class frmConsola
                 '   !playmusic                 -> folder               (whole folder, looping)
                 '   !stopmusic                 -> stop
                 '   !skipmusic                 -> skip
-                ' Order matters (stop/skip before play) and the /adminsay confirmations avoid the
-                ' '!...music' trigger words so their console echo can't re-fire the handler.
+                '   !shufflemusic              -> shuffle              (shuffle the folder)
+                ' Order matters (stop/skip/shuffle before play) and the /adminsay confirmations
+                ' avoid the '!...music' trigger words so their console echo can't re-fire the handler.
                 If commandsEnabled And InStr(lineaLeida, "!stopmusic") > 0 Then
                     WriteMusicCommand("stop")
                     SendToConsole("/adminsay Music: stopped.")
                 ElseIf commandsEnabled And InStr(lineaLeida, "!skipmusic") > 0 Then
                     WriteMusicCommand("skip")
                     SendToConsole("/adminsay Music: skipped to next track.")
+                ElseIf commandsEnabled And InStr(lineaLeida, "!shufflemusic") > 0 Then
+                    WriteMusicCommand("shuffle")
+                    SendToConsole("/adminsay Music: shuffled the folder.")
                 ElseIf commandsEnabled And InStr(lineaLeida, "!playmusic") > 0 Then
                     Dim musicArgs As String = Trim(Mid(lineaLeida, InStr(lineaLeida, "!playmusic") + Len("!playmusic")))
                     If musicArgs = "" Then
@@ -1592,11 +1601,17 @@ Public Class frmConsola
                         mNextVotesYes = 0
                         mNextVotesNo = 0
                         mNextPlayersVoted = ""
+                        mNextIdsVoted = ""
 
                         If LbPlayers.Items.Count = 2 Then mNextNeededVotes = 2
                         mNextVoteIsActive = True
                         CountDownVotes = 48
                         TimerVote.Enabled = True
+
+                        ' Refresh the roster so name->id lookups (ResolvePlayerId) see current
+                        ' nicks during this vote. A /nick change prints nothing to the console,
+                        ' so without this the id behind a renamed player would go stale.
+                        SendToConsole("/playerlist")
 
                         SendToConsole(line1)
                         SendToConsole(line2)
@@ -1606,9 +1621,13 @@ Public Class frmConsola
 
 
             If commandsEnabled And (InStr(lineaLeida, "!vote yes") > 0 And mNextVoteIsActive = True And InStr(lineaLeida, "Type '!vote yes'") = 0) Then
-                If InStr(mNextPlayersVoted, PlayerLeido & " ") = 0 Then
+                ' Dedup by unique player id, not name: a /nick rename would otherwise let the
+                ' same player vote repeatedly. If the name can't be resolved to an id (not in
+                ' the current roster) the vote is ignored - which also blocks the rename exploit.
+                Dim voterId As String = ResolvePlayerId(PlayerLeido)
+                If voterId <> "" AndAlso InStr(mNextIdsVoted, " " & voterId & " ") = 0 Then
                     mNextVotesYes = mNextVotesYes + 1
-                    mNextPlayersVoted = mNextPlayersVoted & PlayerLeido & " "
+                    mNextIdsVoted = mNextIdsVoted & " " & voterId & " "
                     Dim line2 As String = ""
 
                     If CommandInVote = "!votemapnext" Then
@@ -1657,9 +1676,12 @@ Public Class frmConsola
             'con la misma guarda que el bloque de "yes" para no contarlo como voto. Si la mayoría
             'vota no, el voto ya no puede pasar y lo cerramos en el momento.
             If commandsEnabled And (InStr(lineaLeida, "!vote no") > 0 And mNextVoteIsActive = True And InStr(lineaLeida, "Type '!vote yes'") = 0) Then
-                If InStr(mNextPlayersVoted, PlayerLeido & " ") = 0 Then
+                ' Same id-based dedup as the "yes" branch (a player can't vote both yes and no,
+                ' and can't re-vote by renaming). Unresolvable name => ignored.
+                Dim voterId As String = ResolvePlayerId(PlayerLeido)
+                If voterId <> "" AndAlso InStr(mNextIdsVoted, " " & voterId & " ") = 0 Then
                     mNextVotesNo = mNextVotesNo + 1
-                    mNextPlayersVoted = mNextPlayersVoted & PlayerLeido & " "
+                    mNextIdsVoted = mNextIdsVoted & " " & voterId & " "
                     SendToConsole("/adminsay Vote: " & mNextVotesYes.ToString.Trim & " yes / " & mNextVotesNo.ToString.Trim & " no  (need " & mNextNeededVotes.ToString.Trim & " yes).  " & CountDownVotes.ToString.Trim & "s left.")
                     If mNextVotesNo >= mNextNeededVotes Then
                         SendToConsole("/adminsay Vote not Passed.  (" & mNextVotesYes.ToString.Trim & " yes / " & mNextVotesNo.ToString.Trim & " no).  Majority voted no.")
@@ -2265,7 +2287,7 @@ Public Class frmConsola
             commandActivAdLin1 = commandActivAdLin1 & "!mapnext  -  "
         End If
         If chkMapgo.Checked = True Then
-            commandActivAdLin1 = commandActivAdLin1 & "!mapgo <map> <mode>  -  "
+            commandActivAdLin1 = commandActivAdLin1 & "!mapgo  -  "
         End If
         If chkAdminsay.Checked = True Then
             commandActivAdLin1 = commandActivAdLin1 & "!adminsay  -  "
@@ -2285,7 +2307,7 @@ Public Class frmConsola
         End If
         '!votemapgo tiene su propio toggle (Panel2, comandos para todos los jugadores).
         If chkVotemapgo.Checked = True Then
-            commandActivAdLin1 = commandActivAdLin1 & "!votemapgo <map> <mode>  -  "
+            commandActivAdLin1 = commandActivAdLin1 & "!votemapgo  -  "
             commandActivGeneral = commandActivGeneral & "!votemapgo <map> <mode>  -  "
         End If
         If chkMaplist.Checked = True Then
@@ -2301,8 +2323,10 @@ Public Class frmConsola
         If chkAddWord.Checked = True Then
             commandActivAdLin1 = commandActivAdLin1 & "!addword <word> -  "
         End If
-        ' Music stream commands: admin-only, no toggle, so always listed.
-        commandActivAdLin1 = commandActivAdLin1 & "!playmusic <song> [loop]  -  !stopmusic  -  !skipmusic  -  "
+        ' Music stream commands: admin-only, no toggle, so always listed. Kept short (no
+        ' "<song> [loop]" hint) because CoJ chat shows at most 3 lines and the full admin
+        ' list must fit in those 3 - the args still work; !playmusic accepts <song> [loop].
+        commandActivAdLin1 = commandActivAdLin1 & "!playmusic  -  !stopmusic  -  !skipmusic  -  !shufflemusic  -  "
 
         Dim letra As String = ""
         Dim positionLetra As Integer = 100
@@ -2951,6 +2975,25 @@ Public Class frmConsola
             Next
         End If
         Return arg
+    End Function
+
+    ' Reverse of ResolvePlayerName: given a player NAME (as scraped from chat), returns the
+    ' unique player id from LbPlayers ("   <id>    -  <name> "), or "" if the name is not in
+    ' the current roster. Used to dedup votes by id instead of by name, so a /nick rename
+    ' can't buy extra votes. Names are not guaranteed unique, so on a name collision this
+    ' returns the FIRST matching id - an inherent limit of chat lines (they carry no id), but
+    ' still strictly better than name-dedup, which a single renamer could beat outright.
+    Private Function ResolvePlayerId(ByVal name As String) As String
+        name = Trim(name)
+        If name = "" Then Return ""
+        For i As Integer = 0 To LbPlayers.Items.Count - 1
+            Dim item As String = LbPlayers.Items(i).ToString()
+            Dim dashPos As Integer = InStr(item, "-")
+            If dashPos > 0 Then
+                If Trim(Mid(item, dashPos + 1)) = name Then Return Trim(Mid(item, 1, dashPos - 1))
+            End If
+        Next
+        Return ""
     End Function
 
     ' Writes ONE command line to the voicechat relay's command file (musicCmdPath). Overwrites
