@@ -261,6 +261,7 @@ Public Class frmConsola
         Call ReadFilePlayer()
         Call ReadFileAdmin()
         Call ReadMaps()
+        Call ReadProtectState()
         Call LoadListLogs()
         Call ReadFileCommand()
         Call CreaListaComandosActivos()
@@ -741,6 +742,13 @@ Public Class frmConsola
     ' mounted into the controller's OWN folder, so the path is just next to the .exe. Change
     ' this one line if you mount it elsewhere. See WriteMusicCommand for the atomic write.
     Dim musicCmdPath As String = Application.StartupPath & "\music_cmd.txt"
+    ' --- !protect (admin-only): name whitelist. While ON, any player who joins with a name
+    ' that is NOT in whitelist.txt (one name per line, next to the .exe, '#' = comment) is
+    ' kicked at once. For a cheater who keeps changing IP and name, so IP bans can't hold.
+    ' The file is re-read on every check, so it can be edited live without a restart. The
+    ' ON/OFF state is persisted so protection survives a controller restart.
+    Dim protectOn As Boolean = False
+    Dim whitelistPath As String = Application.StartupPath & "\whitelist.txt"
     Dim changedTeam As Boolean = False
     Dim playerInVote As String = ""
 
@@ -1137,6 +1145,9 @@ Public Class frmConsola
                             'con /kick cada vez que reaparece, con un mensaje claro de baneo.
                             SendToConsole("/kick " & Player & " Permanently banned - appeal at IranCoJ")
                             SendToConsole("/adminsay " & Player & ": permanently banned. Appeal at IranCoJ.")
+                        ElseIf protectOn Then
+                            ' !protect: kick anyone whose name isn't whitelisted (admins exempt).
+                            KickIfNotWhitelisted(Player)
                         End If
                     End If
                 End If
@@ -1224,7 +1235,24 @@ Public Class frmConsola
             '*******************COMMANDS Admin***********************************
             If IsAdmin(PlayerLeido) Then
                 Dim comando As String = ""
-                If InStr(lineaLeida, "!addword") > 0 Then
+
+                ' --- Usage hints: an admin command typed with no arguments replies with its
+                ' argument hint (the admin !commandlist shows names only, to fit CoJ chat's 3
+                ' lines). Only for commands whose toggle is on. The hints deliberately omit the
+                ' "!": the controller's /adminsay output echoes back into the console, and an
+                ' echo that still contained e.g. "!protect on/off" could re-trigger the command.
+                If commandsEnabled Then
+                    If chkKick.Checked AndAlso BareCommand(lineaLeida, "!kick") Then SendToConsole("/adminsay Usage: kick <name/id>")
+                    If chkBan.Checked AndAlso BareCommand(lineaLeida, "!ban") Then SendToConsole("/adminsay Usage: ban <name/id>  (permanent)")
+                    If chkUnban.Checked AndAlso BareCommand(lineaLeida, "!unban") Then SendToConsole("/adminsay Usage: unban <name>")
+                    If chkKill.Checked AndAlso BareCommand(lineaLeida, "!kill") Then SendToConsole("/adminsay Usage: kill <name/id>")
+                    If chkNewadmin.Checked AndAlso BareCommand(lineaLeida, "!newadmin") Then SendToConsole("/adminsay Usage: newadmin <name>")
+                    If chkAdminsay.Checked AndAlso BareCommand(lineaLeida, "!adminsay") Then SendToConsole("/adminsay Usage: adminsay <message>")
+                    If BareCommand(lineaLeida, "!addword") Then SendToConsole("/adminsay Usage: addword <word>")
+                    If BareCommand(lineaLeida, "!balance") Then SendToConsole("/adminsay Usage: balance yes/no")
+                End If
+
+                If InStr(lineaLeida, "!addword") > 0 AndAlso Not BareCommand(lineaLeida, "!addword") Then
                     Dim Palabra As String = LCase(Mid(lineaLeida, (InStr(lineaLeida, "!addword") + 9), Len(lineaLeida) - (InStr(lineaLeida, "!addword") + 8)))
                     If Not lbWords.Items.Contains(Palabra) Then
                         AddItemsToListBoxOrdered(lbWords, Palabra)
@@ -1236,13 +1264,61 @@ Public Class frmConsola
                     SendToConsole("/mapnext")
                 End If
 
-                If commandsEnabled And (InStr(lineaLeida, "!mapgo ") > 0 And chkMapgo.Checked = True) Then
-                    Dim mapgoArgs As String = Trim(Mid(lineaLeida, InStr(lineaLeida, "!mapgo ") + 7))
+                ' --- Bots (admin-only, no toggle). "!deploybot N" -> /deploybot N (N must be a
+                ' whole number); "!removebot" -> /removebot. Replies avoid the trigger words.
+                If commandsEnabled And InStr(lineaLeida, "!deploybot") > 0 Then
+                    Dim botArg As String = Trim(Mid(lineaLeida, InStr(lineaLeida, "!deploybot") + Len("!deploybot")))
+                    Dim botTok() As String = botArg.Split(New Char() {" "c}, StringSplitOptions.RemoveEmptyEntries)
+                    Dim botCount As Integer
+                    If botTok.Length >= 1 AndAlso Integer.TryParse(botTok(0), botCount) AndAlso botCount > 0 Then
+                        SendToConsole("/deploybot " & botCount.ToString())
+                    Else
+                        SendToConsole("/adminsay Usage: deploybot <number>")
+                    End If
+                ElseIf commandsEnabled And InStr(lineaLeida, "!removebot") > 0 Then
+                    SendToConsole("/removebot")
+                End If
+
+                ' --- !protect (admin-only): whitelist-only joins. "!protect on" / "!protect off";
+                ' a bare "!protect" (or anything else) just reports the state and the usage. Refuses to turn on while
+                ' whitelist.txt is missing or empty, so a bad file can never kick everyone.
+                ' Turning it on also sweeps players already in the server.
+                If commandsEnabled And InStr(lineaLeida, "!protect") > 0 Then
+                    Dim protArg As String = LCase(Trim(Mid(lineaLeida, InStr(lineaLeida, "!protect") + Len("!protect"))))
+                    If protArg <> "on" AndAlso protArg <> "off" Then
+                        SendToConsole("/adminsay Protect is " & If(protectOn, "ON", "OFF") & ".  Usage: protect on/off  (whitelist.txt next to the controller)")
+                    ElseIf protArg = "on" Then
+                        Dim wl As HashSet(Of String) = LoadWhitelist()
+                        If wl Is Nothing OrElse wl.Count = 0 Then
+                            SendToConsole("/adminsay Protect: NOT enabled - whitelist.txt is missing or empty.")
+                        Else
+                            protectOn = True
+                            WriteProtectState()
+                            SendToConsole("/adminsay Protect: ON - only whitelisted names may join (" & wl.Count.ToString() & " names).")
+                            ' Sweep everyone already connected (LbPlayers: "   <id>    -  <name> ").
+                            For i As Integer = LbPlayers.Items.Count - 1 To 0 Step -1
+                                Dim item As String = LbPlayers.Items(i).ToString()
+                                Dim dashPos As Integer = InStr(item, "-")
+                                If dashPos > 0 Then KickIfNotWhitelisted(Trim(Mid(item, dashPos + 1)), wl)
+                            Next
+                        End If
+                    Else
+                        protectOn = False
+                        WriteProtectState()
+                        SendToConsole("/adminsay Protect: OFF - anyone may join.")
+                    End If
+                End If
+
+                If commandsEnabled And (InStr(lineaLeida, "!mapgo") > 0 And chkMapgo.Checked = True) Then
+                    ' Matches "!mapgo" even with no arguments, so a bare/partial call gets the hint below.
+                    Dim mapgoArgs As String = Trim(Mid(lineaLeida, InStr(lineaLeida, "!mapgo") + Len("!mapgo")))
                     Dim partes() As String = mapgoArgs.Split(New Char() {" "c}, StringSplitOptions.RemoveEmptyEntries)
                     If partes.Length >= 2 Then
                         Dim mapaArg As String = partes(0)
                         Dim modoArg As String = String.Join(" ", partes, 1, partes.Length - 1)
                         EjecutarMapGo(mapaArg, modoArg)
+                    Else
+                        SendToConsole("/adminsay Usage: mapgo <map> <mode>")
                     End If
                 End If
 
@@ -1514,9 +1590,9 @@ Public Class frmConsola
             ' "!votemapnext" as text - echoes back and re-fires this block (e.g. parsing the literal
             ' "<mode>" and replying "unknown mode"). Two guards prevent that: the initiator must be a
             ' currently-connected player (an echo's scraped name is a placeholder like "map", never a
-            ' real player), and the line must not carry the command-list separator "  -  " (a genuine
+            ' real player), and the line must not carry the command-list separator " - " (a genuine
             ' single command never contains it).
-            If commandsEnabled And InStr(lineaLeida, "  -  ") = 0 And FindInListbox(LbPlayers, PlayerLeido) = True _
+            If commandsEnabled And InStr(lineaLeida, " - ") = 0 And FindInListbox(LbPlayers, PlayerLeido) = True _
                And (InStr(lineaLeida, "!votemapnext") > 0 And mNextVoteIsActive = False And chkVotemapnext.Checked = True _
                Or InStr(lineaLeida, "!votemapgo") > 0 And mNextVoteIsActive = False And chkVotemapgo.Checked = True _
                Or InStr(lineaLeida, "!votekick") > 0 And mNextVoteIsActive = False And chkVotekick.Checked = True) Then
@@ -1588,6 +1664,8 @@ Public Class frmConsola
                             line1 = "/adminsay Starting vote to kick " & playerInVote & ".  45 seconds to vote."
                             line2 = "/adminsay Type '!vote yes' or '!vote no'.  (" & mNextVotesYes.ToString.Trim & "/" & mNextNeededVotes.ToString.Trim & " votes)"
                             voteReady = True
+                        ElseIf playerInVote = "" Then
+                            SendToConsole("/adminsay Usage: votekick <name>")
                         Else
                             SendToConsole("/adminsay Vote kick: player '" & playerInVote & "' not found.")
                         End If
@@ -1990,6 +2068,13 @@ Public Class frmConsola
                 If Mid(linealeida, 1, 4) = "Map(" Then
                     Dim Mapa As String = Mid(linealeida, 6, InStr(linealeida, ",") - 7)
                     Dim Modo As String = Mid(linealeida, InStr(linealeida, ", ") + 3, (InStr(linealeida, ")") - (InStr(linealeida, ", ") + 4)))
+                    ' Self-heal a file that was previously saved with a bracketed mode
+                    ' (the old writer wrote "<wanted>" instead of "wanted"): strip any stray
+                    ' <> here so the mode is clean before we re-wrap it for display below.
+                    Modo = Modo.Trim()
+                    If Modo.StartsWith("<") AndAlso Modo.EndsWith(">") AndAlso Modo.Length >= 2 Then
+                        Modo = Modo.Substring(1, Modo.Length - 2)
+                    End If
                     If Mapa = "StinkingSprings2" Then Mapa = "Stinking Springs"
                     If Mapa = "PrisonBreak2" Then Mapa = "Nogales"
                     If Mapa = "Adobes" Then Mapa = "Taos Pueblo"
@@ -2253,47 +2338,46 @@ Public Class frmConsola
         commandActivAdLin2 = ""
         commandActivAdLin3 = ""
         commandActivGeneral = ""
-        If chkCommandlistAd.Checked = True Then
-            commandActivAdLin1 = commandActivAdLin1 & "!commandlist  -  "
-        End If
+        ' !commandlist is not listed in its own admin output (whoever reads it just typed it),
+        ' which keeps the full admin list inside CoJ chat's 3-line limit.
         If chkNewadmin.Checked = True Then
-            commandActivAdLin1 = commandActivAdLin1 & "!newadmin  -  "
+            commandActivAdLin1 = commandActivAdLin1 & "!newadmin - "
         End If
         If chkKill.Checked = True Then
-            commandActivAdLin1 = commandActivAdLin1 & "!kill  -  "
+            commandActivAdLin1 = commandActivAdLin1 & "!kill - "
         End If
         If chkKick.Checked = True Then
-            commandActivAdLin1 = commandActivAdLin1 & "!kick <name/id>  -  "
+            commandActivAdLin1 = commandActivAdLin1 & "!kick - "
         End If
         If chkBan.Checked = True Then
-            commandActivAdLin1 = commandActivAdLin1 & "!ban <name/id>  -  "
+            commandActivAdLin1 = commandActivAdLin1 & "!ban - "
         End If
         If chkUnban.Checked = True Then
-            commandActivAdLin1 = commandActivAdLin1 & "!unban <name>  -  "
+            commandActivAdLin1 = commandActivAdLin1 & "!unban - "
         End If
         If chkBanlist.Checked = True Then
-            commandActivAdLin1 = commandActivAdLin1 & "!banlist  -  "
+            commandActivAdLin1 = commandActivAdLin1 & "!banlist - "
         End If
         If chkPlayerlistAd.Checked = True Then
-            commandActivAdLin1 = commandActivAdLin1 & "!playerlist  -  "
+            commandActivAdLin1 = commandActivAdLin1 & "!playerlist - "
         End If
         If chkServershutdown.Checked = True Then
-            commandActivAdLin1 = commandActivAdLin1 & "!servershutdown  -  "
+            commandActivAdLin1 = commandActivAdLin1 & "!servershutdown - "
         End If
         If chkRestart.Checked = True Then
-            commandActivAdLin1 = commandActivAdLin1 & "!restart  -  "
+            commandActivAdLin1 = commandActivAdLin1 & "!restart - "
         End If
         If chkMapnext.Checked = True Then
-            commandActivAdLin1 = commandActivAdLin1 & "!mapnext  -  "
+            commandActivAdLin1 = commandActivAdLin1 & "!mapnext - "
         End If
         If chkMapgo.Checked = True Then
-            commandActivAdLin1 = commandActivAdLin1 & "!mapgo  -  "
+            commandActivAdLin1 = commandActivAdLin1 & "!mapgo - "
         End If
         If chkAdminsay.Checked = True Then
-            commandActivAdLin1 = commandActivAdLin1 & "!adminsay  -  "
+            commandActivAdLin1 = commandActivAdLin1 & "!adminsay - "
         End If
         If chkMaplistAd.Checked = True Then
-            commandActivAdLin1 = commandActivAdLin1 & "!maplist  -  "
+            commandActivAdLin1 = commandActivAdLin1 & "!maplist - "
         End If
         If chkCommandlist.Checked = True Then
             commandActivGeneral = commandActivGeneral & "!commandlist  -  "
@@ -2302,31 +2386,31 @@ Public Class frmConsola
             commandActivGeneral = commandActivGeneral & "!playerlist  -  "
         End If
         If chkVotemapnext.Checked = True Then
-            commandActivAdLin1 = commandActivAdLin1 & "!votemapnext  -  "
+            commandActivAdLin1 = commandActivAdLin1 & "!votemapnext - "
             commandActivGeneral = commandActivGeneral & "!votemapnext  -  "
         End If
         '!votemapgo tiene su propio toggle (Panel2, comandos para todos los jugadores).
         If chkVotemapgo.Checked = True Then
-            commandActivAdLin1 = commandActivAdLin1 & "!votemapgo  -  "
+            commandActivAdLin1 = commandActivAdLin1 & "!votemapgo - "
             commandActivGeneral = commandActivGeneral & "!votemapgo <map> <mode>  -  "
         End If
         If chkMaplist.Checked = True Then
             commandActivGeneral = commandActivGeneral & "!maplist  -  "
         End If
         If chkVotekick.Checked = True Then
-            commandActivAdLin1 = commandActivAdLin1 & "!votekick  -  "
+            commandActivAdLin1 = commandActivAdLin1 & "!votekick - "
             commandActivGeneral = commandActivGeneral & "!votekick  -  "
         End If
         If chkBalanceAd.Checked = True Then
-            commandActivAdLin1 = commandActivAdLin1 & "!balance yes/no -  "
+            commandActivAdLin1 = commandActivAdLin1 & "!balance - "
         End If
         If chkAddWord.Checked = True Then
-            commandActivAdLin1 = commandActivAdLin1 & "!addword <word> -  "
+            commandActivAdLin1 = commandActivAdLin1 & "!addword - "
         End If
-        ' Music stream commands: admin-only, no toggle, so always listed. Kept short (no
-        ' "<song> [loop]" hint) because CoJ chat shows at most 3 lines and the full admin
-        ' list must fit in those 3 - the args still work; !playmusic accepts <song> [loop].
-        commandActivAdLin1 = commandActivAdLin1 & "!playmusic  -  !stopmusic  -  !skipmusic  -  !shufflemusic  -  "
+        ' Always-on admin commands (no toggle). CoJ chat shows at most 3 lines, so the
+        ' admin list carries names only - no "<arg>" hints - and the four music
+        ' commands are folded into one compact entry.
+        commandActivAdLin1 = commandActivAdLin1 & "!play/stop/skip/shufflemusic - !deploybot - !removebot - !protect - "
 
         Dim letra As String = ""
         Dim positionLetra As Integer = 100
@@ -2566,27 +2650,41 @@ Public Class frmConsola
                 arrLineaLeida(i) = readerConfig.ReadLine()
                 If Mid(arrLineaLeida(i), 1, 4) = "Map(" Then
                     Try
-                        mapa = dgMaps.Rows(LineaDgridMap).Cells(0).Value.ToString.Trim
-                        If mapa = "Taos Pueblo" Then mapa = "Adobes"
-                        If mapa = "Burnside's Bridge" Then mapa = "Civil"
-                        If mapa = "Nogales" Then mapa = "PrisonBreak2"
-                        If mapa = "Stinking Springs" Then mapa = "StinkingSprings2"
+                        If LineaDgridMap < dgMaps.Rows.Count Then
+                            mapa = dgMaps.Rows(LineaDgridMap).Cells(0).Value.ToString.Trim
+                            If mapa = "Taos Pueblo" Then mapa = "Adobes"
+                            If mapa = "Burnside's Bridge" Then mapa = "Civil"
+                            If mapa = "Nogales" Then mapa = "PrisonBreak2"
+                            If mapa = "Stinking Springs" Then mapa = "StinkingSprings2"
 
-                        modo = dgMaps.Rows(LineaDgridMap).Cells(1).Value.ToString.Trim
-                        If modo = "<Manhunt>" Then modo = "teamwanted"
-                        If modo = "<Posse>" Then modo = "teamdeathmatch"
-                        If modo = "<Shootout>" Then modo = "deathmatch"
-                        If modo = "<Wanted>" Then modo = "wanted"
-                        If modo = "<W.W.Legends>" Then modo = "historical"
+                            modo = dgMaps.Rows(LineaDgridMap).Cells(1).Value.ToString.Trim
+                            ' The grid stores the mode wrapped in <> for display; strip the
+                            ' brackets before writing so we never save "<wanted>" to the file.
+                            If modo.StartsWith("<") AndAlso modo.EndsWith(">") AndAlso modo.Length >= 2 Then
+                                modo = modo.Substring(1, modo.Length - 2)
+                            End If
+                            ' Reverse the display renames (unbracketed, case-insensitive). Any
+                            ' other mode - including plain "wanted" - is already the file value.
+                            Select Case LCase(modo)
+                                Case "manhunt" : modo = "teamwanted"
+                                Case "posse" : modo = "teamdeathmatch"
+                                Case "shootout" : modo = "deathmatch"
+                                Case "w.w.legends" : modo = "historical"
+                            End Select
 
-                        'Map("Adobes", "deathmatch")
+                            'Map("Adobes", "deathmatch")
 
-                        arrLineaLeida(i) = "Map(""" & mapa & """, """ & modo & """)"
-                        LineaDgridMap = LineaDgridMap + 1
+                            arrLineaLeida(i) = "Map(""" & mapa & """, """ & modo & """)"
+                            LineaDgridMap = LineaDgridMap + 1
+                        Else
+                            ' More Map() lines in the file than rows in the rotation grid:
+                            ' drop the stale extra instead of leaving the old line behind.
+                            arrLineaLeida(i) = ""
+                        End If
                     Catch ex As Exception
 
                     End Try
-                   
+
                 End If
             Next
             readerConfig.Close()
@@ -2977,6 +3075,15 @@ Public Class frmConsola
         Return arg
     End Function
 
+    ' True when cmd appears in the line with nothing after it (e.g. "<admin> !kick"), i.e.
+    ' the command was typed without its arguments. Whole-token: "!ban" in "!banlist" does
+    ' not count, because "list" follows it.
+    Private Function BareCommand(ByVal line As String, ByVal cmd As String) As Boolean
+        Dim p As Integer = InStr(line, cmd)
+        If p = 0 Then Return False
+        Return Trim(Mid(line, p + Len(cmd))) = ""
+    End Function
+
     ' Reverse of ResolvePlayerName: given a player NAME (as scraped from chat), returns the
     ' unique player id from LbPlayers ("   <id>    -  <name> "), or "" if the name is not in
     ' the current roster. Used to dedup votes by id instead of by name, so a /nick rename
@@ -2995,6 +3102,57 @@ Public Class frmConsola
         Next
         Return ""
     End Function
+
+    ' Reads whitelist.txt (one name per line, '#' starts a comment line, blanks ignored).
+    ' Returns Nothing if the file is missing/unreadable. Case-SENSITIVE exact match, so a
+    ' cheater can't slip through with a different capitalisation of a whitelisted name.
+    Private Function LoadWhitelist() As HashSet(Of String)
+        Try
+            If Not File.Exists(whitelistPath) Then Return Nothing
+            Dim wl As New HashSet(Of String)(StringComparer.Ordinal)
+            For Each ln As String In File.ReadAllLines(whitelistPath)
+                Dim nm As String = ln.Trim()
+                If nm <> "" AndAlso Not nm.StartsWith("#") Then wl.Add(nm)
+            Next
+            Return wl
+        Catch
+            Return Nothing
+        End Try
+    End Function
+
+    ' Kicks playerName unless it is whitelisted or an admin. A missing/empty whitelist
+    ' never kicks (fail-open), so a deleted file can't empty the server. Pass wl to reuse
+    ' an already-loaded list (the !protect sweep); otherwise the file is re-read.
+    Private Sub KickIfNotWhitelisted(ByVal playerName As String, Optional ByVal wl As HashSet(Of String) = Nothing)
+        playerName = Trim(playerName)
+        If playerName = "" OrElse IsAdmin(playerName) Then Return
+        If wl Is Nothing Then wl = LoadWhitelist()
+        If wl Is Nothing OrElse wl.Count = 0 Then
+            lbConsola.Items.Add(Mid(Date.Now, InStr(Date.Now, " ") + 1, 8) & " protect: whitelist.txt missing/empty - not kicking " & playerName)
+            Return
+        End If
+        If Not wl.Contains(playerName) Then
+            SendToConsole("/kick " & playerName & " Not on the whitelist")
+            SendToConsole("/adminsay " & playerName & " was kicked: server is whitelist-only right now.")
+        End If
+    End Sub
+
+    Private Sub ReadProtectState()
+        Try
+            Dim f As String = rutaAppData & "\Config\Protect.ini"
+            If File.Exists(f) Then protectOn = CBool(File.ReadAllText(f).Trim())
+        Catch
+            protectOn = False
+        End Try
+    End Sub
+
+    Private Sub WriteProtectState()
+        Try
+            My.Computer.FileSystem.CreateDirectory(rutaAppData & "\Config")
+            File.WriteAllText(rutaAppData & "\Config\Protect.ini", protectOn.ToString())
+        Catch
+        End Try
+    End Sub
 
     ' Writes ONE command line to the voicechat relay's command file (musicCmdPath). Overwrites
     ' (never appends) so the relay always reads the intended command, and writes IN PLACE

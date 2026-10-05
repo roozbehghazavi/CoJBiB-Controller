@@ -1,5 +1,131 @@
 ===============================================================================
  CoJ2 Controller - IranCoJ Edition
+ Version 3.4.0.0  -  2026-10-05
+ Fork of the original CoJ2 Controller by S!lv3r and Tr!tu (GPLv3).
+===============================================================================
+
+This update adds the IranCoJ New Classes (Rancher and Redneck) and their
+weapons to the class modding, and fixes setting a mod on a server whose
+CoJ2\Data\Player folder already holds other files.
+
+-------------------------------------------------------------------------------
+ NEW FEATURES
+-------------------------------------------------------------------------------
+
+* Rancher and Redneck in the class modding: they are in the class list, the
+  "Add class" picker (with their own pictures) and the "Look Mod" table, and
+  a new mod includes them like the other classes. Their default weapons:
+    - Rancher: two Border Guns + Throwing Knives
+    - Redneck: Springfield Musket + Tomahawks
+
+* New weapons, with side-view pictures:
+    - Left / right hand: Border Gun, Throwing Knives, Tomahawks
+    - Both hands: Springfield Musket, Throwing Knives, Tomahawks
+  The knives and tomahawks bring their own throws (5 / 3), no ammo needed.
+  They need the IranCoJ New Classes mod on the server and the players' games.
+
+-------------------------------------------------------------------------------
+ BUG FIXES
+-------------------------------------------------------------------------------
+
+* "Set this mod ingame" and "Restore original classes in game" no longer
+  delete the whole CoJ2\Data\Player folder. When the folder held other files
+  (for example a Docker volume with the New Classes' scripts) they failed with
+  an unhandled "directory is not empty" error - and when they worked they
+  deleted those files. Now only the
+  class weapon files (_NetWeapon_<class>_Properties.scr) are taken out and the
+  mod's files are copied over, replacing any with the same name. Rancher and
+  Redneck get their New Classes weapons back unless the mod sets them.
+
+* The "Look Mod" table showed the wrong ammo for the three biggest amounts
+  (85 / 95 / 100 instead of the 95 / 140 / 190 the mod really gives).
+
+-------------------------------------------------------------------------------
+ NOTES
+-------------------------------------------------------------------------------
+
+* Mods saved by older versions load as before. A mod that uses the new weapons
+  stores them as letters (A, B) in its mod.ini, which older Controllers can't
+  read.
+
+===============================================================================
+ CoJ2 Controller - IranCoJ Edition
+ Version 3.3.2.0  -  2026-09-28
+ Fork of the original CoJ2 Controller by S!lv3r and Tr!tu (GPLv3).
+===============================================================================
+
+This update adds bot controls and a whitelist-only "protect" mode against a
+cheater who keeps changing IP and name, and fixes map modes being saved as
+"<wanted>" by "Remember last maps".
+
+-------------------------------------------------------------------------------
+ NEW FEATURES
+-------------------------------------------------------------------------------
+
+* !deploybot <N> / !removebot  (NEW admin commands)
+    !deploybot 4 sends /deploybot 4 to the server; N must be a whole number
+    above 0, otherwise the usage hint is shown. !removebot sends /removebot.
+    Admin-only, no toggle.
+
+* !protect  (NEW admin command) - whitelist-only server
+    For a player who dodges IP bans by changing IP and name. While protect is
+    ON, anyone who joins with a name that is not in the whitelist is kicked at
+    once ("Not on the whitelist").
+      !protect on       Turn on (also kicks non-whitelisted players already in).
+      !protect off      Turn off.
+      !protect          Show whether protect is on, plus the usage.
+    - Whitelist: "whitelist.txt" next to the exe, one name per line. Blank
+      lines and lines starting with # are ignored. The file is re-read on every
+      check, so it can be edited while the server runs.
+    - Names must match exactly, including capital letters.
+    - Admins are never kicked by protect.
+    - Protect will not turn on while whitelist.txt is missing or empty, and if
+      the file disappears while it is on, nobody is kicked - a bad file can never
+      empty the server.
+    - The on/off state is remembered across controller restarts.
+
+-------------------------------------------------------------------------------
+ CHANGES
+-------------------------------------------------------------------------------
+
+* The admin !commandlist is more compact so the whole list fits in CoJ chat's
+  3-line limit even with every command enabled: argument hints were dropped,
+  the separator was shortened, the four music commands are shown as
+  "!play/stop/skip/shufflemusic", and !commandlist no longer lists itself.
+
+* Usage hints: typing an admin command without its arguments now replies with
+  the arguments it takes, e.g. "!kick" -> "Usage: kick <name/id>". Covers
+  !kick, !ban, !unban, !kill, !newadmin, !adminsay, !mapgo, !addword,
+  !balance, !deploybot, !protect and !votekick. Previously most of these did
+  nothing at all when typed bare. (The hint is shown without the "!" so the
+  controller can't mistake its own echoed reply for a new command.)
+
+-------------------------------------------------------------------------------
+ BUG FIXES
+-------------------------------------------------------------------------------
+
+* Typing "!addword" with no word no longer causes an error in the console
+  reader; it shows the usage hint instead.
+
+* "Remember last maps" no longer saves modes wrapped in brackets. A plain mode
+  such as "wanted" was written to DedicatedServerSettings.ini as "<wanted>".
+  A file already saved that way is repaired automatically the next time the
+  controller loads it, and stray extra Map() lines beyond the rotation are
+  dropped when the rotation is saved.
+
+-------------------------------------------------------------------------------
+ NOTES
+-------------------------------------------------------------------------------
+
+* Protect matches names only. Someone joining under a whitelisted name, or
+  renaming with /nick after joining (which the console never reports), is not
+  caught - keep using IP bans alongside it.
+
+* If bots are deployed while protect is on, add the bot names to
+  whitelist.txt or they will be kicked like any other unlisted name.
+
+===============================================================================
+ CoJ2 Controller - IranCoJ Edition
  Version 3.3.1.0  -  2026-08-31
  Fork of the original CoJ2 Controller by S!lv3r and Tr!tu (GPLv3).
 ===============================================================================

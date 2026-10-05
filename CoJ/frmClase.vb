@@ -25,371 +25,64 @@ Public Class frmClase
 
     Dim ClaseEnCreacion As Integer = 0
 
+    ' One picture and one label per class, in the order of ClassNames (= frmArmas.cbClass). The 13 stock classes come
+    ' from the designer; the Rancher and Redneck (IranCoJ New Classes) are added in the free spots of the third row.
+    Dim pictures As New List(Of PictureBox)
+    Dim labels As New List(Of Label)
 
-    Private Sub pictureAristocrat_Click(sender As Object, e As EventArgs) Handles pictureAristocrat.Click, lblAristocrat.Click
-        ClaseEnCreacion = 0
+    Private Sub frmClase_Load(sender As Object, e As EventArgs) Handles MyBase.Load
+        pictures.AddRange({pictureAristocrat, pictureBandit, pictureBarnsby, pictureDoc, pictureGunslinger, pictureGunsmith, pictureJuarez, pictureMiner, pictureRifleman, pictureSniper, pictureThief, pictureTrapper, pictureTribeWarrior})
+        labels.AddRange({lblAristocrat, lblBandit, lblBarnsby, lblDoc, lblGunslinger, lblGunsmith, lblJuarez, lblMiner, lblRifleman, lblSniper, lblThief, lblTrapper, lblTribeWarrior})
 
-        pictureAristocrat.ImageLocation = Application.StartupPath & "\images\characters\Selecc_" & "Aristocrat" & ".jpg"
-        pictureBandit.ImageLocation = Application.StartupPath & "\images\characters\" & "Bandit" & ".jpg"
-        pictureBarnsby.ImageLocation = Application.StartupPath & "\images\characters\" & "Barnsby" & ".jpg"
-        pictureDoc.ImageLocation = Application.StartupPath & "\images\characters\" & "Doc" & ".jpg"
-        pictureGunslinger.ImageLocation = Application.StartupPath & "\images\characters\" & "Gunslinger" & ".jpg"
-        pictureGunsmith.ImageLocation = Application.StartupPath & "\images\characters\" & "Gunsmith" & ".jpg"
-        pictureJuarez.ImageLocation = Application.StartupPath & "\images\characters\" & "Juarez" & ".jpg"
-        pictureMiner.ImageLocation = Application.StartupPath & "\images\characters\" & "Miner" & ".jpg"
-        pictureRifleman.ImageLocation = Application.StartupPath & "\images\characters\" & "Rifleman" & ".jpg"
-        pictureSniper.ImageLocation = Application.StartupPath & "\images\characters\" & "Sniper" & ".jpg"
-        pictureThief.ImageLocation = Application.StartupPath & "\images\characters\" & "Thief" & ".jpg"
-        pictureTrapper.ImageLocation = Application.StartupPath & "\images\characters\" & "Trapper" & ".jpg"
-        pictureTribeWarrior.ImageLocation = Application.StartupPath & "\images\characters\" & "Tribe Warrior" & ".jpg"
+        ' The third row's right side held the buttons: they move down a row to make room.
+        Dim shift As Integer = 90
+        checkLoadDefault.Top += shift
+        btnAdd.Top += shift
+        btnCancel.Top += shift
+        Me.ClientSize = New Size(Me.ClientSize.Width, Me.ClientSize.Height + shift)
 
+        Dim newNames() As String = {"Rancher", "Redneck"}
+        Dim newX() As Integer = {pictureRifleman.Left, pictureSniper.Left}   ' the 4th and 5th columns
+        For n = 0 To newNames.Length - 1
+            Dim slot = New With {.Name = newNames(n), .X = newX(n)}
+            Dim pic As New PictureBox With {
+                .BorderStyle = pictureTribeWarrior.BorderStyle, .Cursor = Cursors.Hand, .SizeMode = PictureBoxSizeMode.Zoom,
+                .Size = pictureTribeWarrior.Size, .Location = New Point(slot.X, pictureTribeWarrior.Top), .Name = "picture" & slot.Name,
+                .ImageLocation = Application.StartupPath & "\images\characters\" & slot.Name & ".jpg"}
+            Dim lbl As New Label With {
+                .AutoSize = True, .Cursor = Cursors.Hand, .Font = lblTribeWarrior.Font, .Text = slot.Name, .Name = "lbl" & slot.Name}
+            Controls.Add(pic)
+            Controls.Add(lbl)
+            lbl.Location = New Point(slot.X + (pic.Width - lbl.PreferredWidth) \ 2, lblTribeWarrior.Top)
+            pictures.Add(pic)
+            labels.Add(lbl)
+        Next
 
-
+        For i = 0 To pictures.Count - 1
+            AddHandler pictures(i).Click, AddressOf Class_Click
+            AddHandler labels(i).Click, AddressOf Class_Click
+            AddHandler pictures(i).DoubleClick, AddressOf btnAdd_Click
+        Next
     End Sub
 
-    Private Sub pictureBandit_Click(sender As Object, e As EventArgs) Handles pictureBandit.Click, lblBandit.Click
-        ClaseEnCreacion = 1
-
-        pictureAristocrat.ImageLocation = Application.StartupPath & "\images\characters\" & "Aristocrat" & ".jpg"
-        pictureBandit.ImageLocation = Application.StartupPath & "\images\characters\Selecc_" & "Bandit" & ".jpg"
-        pictureBarnsby.ImageLocation = Application.StartupPath & "\images\characters\" & "Barnsby" & ".jpg"
-        pictureDoc.ImageLocation = Application.StartupPath & "\images\characters\" & "Doc" & ".jpg"
-        pictureGunslinger.ImageLocation = Application.StartupPath & "\images\characters\" & "Gunslinger" & ".jpg"
-        pictureGunsmith.ImageLocation = Application.StartupPath & "\images\characters\" & "Gunsmith" & ".jpg"
-        pictureJuarez.ImageLocation = Application.StartupPath & "\images\characters\" & "Juarez" & ".jpg"
-        pictureMiner.ImageLocation = Application.StartupPath & "\images\characters\" & "Miner" & ".jpg"
-        pictureRifleman.ImageLocation = Application.StartupPath & "\images\characters\" & "Rifleman" & ".jpg"
-        pictureSniper.ImageLocation = Application.StartupPath & "\images\characters\" & "Sniper" & ".jpg"
-        pictureThief.ImageLocation = Application.StartupPath & "\images\characters\" & "Thief" & ".jpg"
-        pictureTrapper.ImageLocation = Application.StartupPath & "\images\characters\" & "Trapper" & ".jpg"
-        pictureTribeWarrior.ImageLocation = Application.StartupPath & "\images\characters\" & "Tribe Warrior" & ".jpg"
+    ' Click on a class: it shows its "selected" picture, the others their normal one.
+    Private Sub Class_Click(sender As Object, e As EventArgs)
+        Dim i As Integer = pictures.IndexOf(TryCast(sender, PictureBox))
+        If i < 0 Then i = labels.IndexOf(TryCast(sender, Label))
+        If i < 0 Then Exit Sub
+        ClaseEnCreacion = i
+        For k = 0 To pictures.Count - 1
+            pictures(k).ImageLocation = Application.StartupPath & "\images\characters\" & If(k = i, "Selecc_", "") & ClassNames(k) & ".jpg"
+        Next
     End Sub
 
-    Private Sub pictureBarnsby_Click(sender As Object, e As EventArgs) Handles pictureBarnsby.Click, lblBarnsby.Click
-        ClaseEnCreacion = 2
-
-        pictureAristocrat.ImageLocation = Application.StartupPath & "\images\characters\" & "Aristocrat" & ".jpg"
-        pictureBandit.ImageLocation = Application.StartupPath & "\images\characters\" & "Bandit" & ".jpg"
-        pictureBarnsby.ImageLocation = Application.StartupPath & "\images\characters\Selecc_" & "Barnsby" & ".jpg"
-        pictureDoc.ImageLocation = Application.StartupPath & "\images\characters\" & "Doc" & ".jpg"
-        pictureGunslinger.ImageLocation = Application.StartupPath & "\images\characters\" & "Gunslinger" & ".jpg"
-        pictureGunsmith.ImageLocation = Application.StartupPath & "\images\characters\" & "Gunsmith" & ".jpg"
-        pictureJuarez.ImageLocation = Application.StartupPath & "\images\characters\" & "Juarez" & ".jpg"
-        pictureMiner.ImageLocation = Application.StartupPath & "\images\characters\" & "Miner" & ".jpg"
-        pictureRifleman.ImageLocation = Application.StartupPath & "\images\characters\" & "Rifleman" & ".jpg"
-        pictureSniper.ImageLocation = Application.StartupPath & "\images\characters\" & "Sniper" & ".jpg"
-        pictureThief.ImageLocation = Application.StartupPath & "\images\characters\" & "Thief" & ".jpg"
-        pictureTrapper.ImageLocation = Application.StartupPath & "\images\characters\" & "Trapper" & ".jpg"
-        pictureTribeWarrior.ImageLocation = Application.StartupPath & "\images\characters\" & "Tribe Warrior" & ".jpg"
-    End Sub
-
-    Private Sub pictureDoc_Click(sender As Object, e As EventArgs) Handles pictureDoc.Click, lblDoc.Click
-        ClaseEnCreacion = 3
-
-        pictureAristocrat.ImageLocation = Application.StartupPath & "\images\characters\" & "Aristocrat" & ".jpg"
-        pictureBandit.ImageLocation = Application.StartupPath & "\images\characters\" & "Bandit" & ".jpg"
-        pictureBarnsby.ImageLocation = Application.StartupPath & "\images\characters\" & "Barnsby" & ".jpg"
-        pictureDoc.ImageLocation = Application.StartupPath & "\images\characters\Selecc_" & "Doc" & ".jpg"
-        pictureGunslinger.ImageLocation = Application.StartupPath & "\images\characters\" & "Gunslinger" & ".jpg"
-        pictureGunsmith.ImageLocation = Application.StartupPath & "\images\characters\" & "Gunsmith" & ".jpg"
-        pictureJuarez.ImageLocation = Application.StartupPath & "\images\characters\" & "Juarez" & ".jpg"
-        pictureMiner.ImageLocation = Application.StartupPath & "\images\characters\" & "Miner" & ".jpg"
-        pictureRifleman.ImageLocation = Application.StartupPath & "\images\characters\" & "Rifleman" & ".jpg"
-        pictureSniper.ImageLocation = Application.StartupPath & "\images\characters\" & "Sniper" & ".jpg"
-        pictureThief.ImageLocation = Application.StartupPath & "\images\characters\" & "Thief" & ".jpg"
-        pictureTrapper.ImageLocation = Application.StartupPath & "\images\characters\" & "Trapper" & ".jpg"
-        pictureTribeWarrior.ImageLocation = Application.StartupPath & "\images\characters\" & "Tribe Warrior" & ".jpg"
-    End Sub
-
-    Private Sub pictureGunslinger_Click(sender As Object, e As EventArgs) Handles pictureGunslinger.Click, lblGunslinger.Click
-        ClaseEnCreacion = 4
-
-        pictureAristocrat.ImageLocation = Application.StartupPath & "\images\characters\" & "Aristocrat" & ".jpg"
-        pictureBandit.ImageLocation = Application.StartupPath & "\images\characters\" & "Bandit" & ".jpg"
-        pictureBarnsby.ImageLocation = Application.StartupPath & "\images\characters\" & "Barnsby" & ".jpg"
-        pictureDoc.ImageLocation = Application.StartupPath & "\images\characters\" & "Doc" & ".jpg"
-        pictureGunslinger.ImageLocation = Application.StartupPath & "\images\characters\Selecc_" & "Gunslinger" & ".jpg"
-        pictureGunsmith.ImageLocation = Application.StartupPath & "\images\characters\" & "Gunsmith" & ".jpg"
-        pictureJuarez.ImageLocation = Application.StartupPath & "\images\characters\" & "Juarez" & ".jpg"
-        pictureMiner.ImageLocation = Application.StartupPath & "\images\characters\" & "Miner" & ".jpg"
-        pictureRifleman.ImageLocation = Application.StartupPath & "\images\characters\" & "Rifleman" & ".jpg"
-        pictureSniper.ImageLocation = Application.StartupPath & "\images\characters\" & "Sniper" & ".jpg"
-        pictureThief.ImageLocation = Application.StartupPath & "\images\characters\" & "Thief" & ".jpg"
-        pictureTrapper.ImageLocation = Application.StartupPath & "\images\characters\" & "Trapper" & ".jpg"
-        pictureTribeWarrior.ImageLocation = Application.StartupPath & "\images\characters\" & "Tribe Warrior" & ".jpg"
-    End Sub
-
-    Private Sub pictureGunsmith_Click(sender As Object, e As EventArgs) Handles pictureGunsmith.Click, lblGunsmith.Click
-        ClaseEnCreacion = 5
-
-        pictureAristocrat.ImageLocation = Application.StartupPath & "\images\characters\" & "Aristocrat" & ".jpg"
-        pictureBandit.ImageLocation = Application.StartupPath & "\images\characters\" & "Bandit" & ".jpg"
-        pictureBarnsby.ImageLocation = Application.StartupPath & "\images\characters\" & "Barnsby" & ".jpg"
-        pictureDoc.ImageLocation = Application.StartupPath & "\images\characters\" & "Doc" & ".jpg"
-        pictureGunslinger.ImageLocation = Application.StartupPath & "\images\characters\" & "Gunslinger" & ".jpg"
-        pictureGunsmith.ImageLocation = Application.StartupPath & "\images\characters\Selecc_" & "Gunsmith" & ".jpg"
-        pictureJuarez.ImageLocation = Application.StartupPath & "\images\characters\" & "Juarez" & ".jpg"
-        pictureMiner.ImageLocation = Application.StartupPath & "\images\characters\" & "Miner" & ".jpg"
-        pictureRifleman.ImageLocation = Application.StartupPath & "\images\characters\" & "Rifleman" & ".jpg"
-        pictureSniper.ImageLocation = Application.StartupPath & "\images\characters\" & "Sniper" & ".jpg"
-        pictureThief.ImageLocation = Application.StartupPath & "\images\characters\" & "Thief" & ".jpg"
-        pictureTrapper.ImageLocation = Application.StartupPath & "\images\characters\" & "Trapper" & ".jpg"
-        pictureTribeWarrior.ImageLocation = Application.StartupPath & "\images\characters\" & "Tribe Warrior" & ".jpg"
-    End Sub
-
-    Private Sub pictureJuarez_Click(sender As Object, e As EventArgs) Handles pictureJuarez.Click, lblJuarez.Click
-        ClaseEnCreacion = 6
-
-        pictureAristocrat.ImageLocation = Application.StartupPath & "\images\characters\" & "Aristocrat" & ".jpg"
-        pictureBandit.ImageLocation = Application.StartupPath & "\images\characters\" & "Bandit" & ".jpg"
-        pictureBarnsby.ImageLocation = Application.StartupPath & "\images\characters\" & "Barnsby" & ".jpg"
-        pictureDoc.ImageLocation = Application.StartupPath & "\images\characters\" & "Doc" & ".jpg"
-        pictureGunslinger.ImageLocation = Application.StartupPath & "\images\characters\" & "Gunslinger" & ".jpg"
-        pictureGunsmith.ImageLocation = Application.StartupPath & "\images\characters\" & "Gunsmith" & ".jpg"
-        pictureJuarez.ImageLocation = Application.StartupPath & "\images\characters\Selecc_" & "Juarez" & ".jpg"
-        pictureMiner.ImageLocation = Application.StartupPath & "\images\characters\" & "Miner" & ".jpg"
-        pictureRifleman.ImageLocation = Application.StartupPath & "\images\characters\" & "Rifleman" & ".jpg"
-        pictureSniper.ImageLocation = Application.StartupPath & "\images\characters\" & "Sniper" & ".jpg"
-        pictureThief.ImageLocation = Application.StartupPath & "\images\characters\" & "Thief" & ".jpg"
-        pictureTrapper.ImageLocation = Application.StartupPath & "\images\characters\" & "Trapper" & ".jpg"
-        pictureTribeWarrior.ImageLocation = Application.StartupPath & "\images\characters\" & "Tribe Warrior" & ".jpg"
-    End Sub
-
-    Private Sub pictureMiner_Click(sender As Object, e As EventArgs) Handles pictureMiner.Click, lblMiner.Click
-        ClaseEnCreacion = 7
-
-        pictureAristocrat.ImageLocation = Application.StartupPath & "\images\characters\" & "Aristocrat" & ".jpg"
-        pictureBandit.ImageLocation = Application.StartupPath & "\images\characters\" & "Bandit" & ".jpg"
-        pictureBarnsby.ImageLocation = Application.StartupPath & "\images\characters\" & "Barnsby" & ".jpg"
-        pictureDoc.ImageLocation = Application.StartupPath & "\images\characters\" & "Doc" & ".jpg"
-        pictureGunslinger.ImageLocation = Application.StartupPath & "\images\characters\" & "Gunslinger" & ".jpg"
-        pictureGunsmith.ImageLocation = Application.StartupPath & "\images\characters\" & "Gunsmith" & ".jpg"
-        pictureJuarez.ImageLocation = Application.StartupPath & "\images\characters\" & "Juarez" & ".jpg"
-        pictureMiner.ImageLocation = Application.StartupPath & "\images\characters\Selecc_" & "Miner" & ".jpg"
-        pictureRifleman.ImageLocation = Application.StartupPath & "\images\characters\" & "Rifleman" & ".jpg"
-        pictureSniper.ImageLocation = Application.StartupPath & "\images\characters\" & "Sniper" & ".jpg"
-        pictureThief.ImageLocation = Application.StartupPath & "\images\characters\" & "Thief" & ".jpg"
-        pictureTrapper.ImageLocation = Application.StartupPath & "\images\characters\" & "Trapper" & ".jpg"
-        pictureTribeWarrior.ImageLocation = Application.StartupPath & "\images\characters\" & "Tribe Warrior" & ".jpg"
-    End Sub
-
-    Private Sub pictureRifleman_Click(sender As Object, e As EventArgs) Handles pictureRifleman.Click, lblRifleman.Click
-        ClaseEnCreacion = 8
-
-        pictureAristocrat.ImageLocation = Application.StartupPath & "\images\characters\" & "Aristocrat" & ".jpg"
-        pictureBandit.ImageLocation = Application.StartupPath & "\images\characters\" & "Bandit" & ".jpg"
-        pictureBarnsby.ImageLocation = Application.StartupPath & "\images\characters\" & "Barnsby" & ".jpg"
-        pictureDoc.ImageLocation = Application.StartupPath & "\images\characters\" & "Doc" & ".jpg"
-        pictureGunslinger.ImageLocation = Application.StartupPath & "\images\characters\" & "Gunslinger" & ".jpg"
-        pictureGunsmith.ImageLocation = Application.StartupPath & "\images\characters\" & "Gunsmith" & ".jpg"
-        pictureJuarez.ImageLocation = Application.StartupPath & "\images\characters\" & "Juarez" & ".jpg"
-        pictureMiner.ImageLocation = Application.StartupPath & "\images\characters\" & "Miner" & ".jpg"
-        pictureRifleman.ImageLocation = Application.StartupPath & "\images\characters\Selecc_" & "Rifleman" & ".jpg"
-        pictureSniper.ImageLocation = Application.StartupPath & "\images\characters\" & "Sniper" & ".jpg"
-        pictureThief.ImageLocation = Application.StartupPath & "\images\characters\" & "Thief" & ".jpg"
-        pictureTrapper.ImageLocation = Application.StartupPath & "\images\characters\" & "Trapper" & ".jpg"
-        pictureTribeWarrior.ImageLocation = Application.StartupPath & "\images\characters\" & "Tribe Warrior" & ".jpg"
-    End Sub
-
-    Private Sub pictureSniper_Click(sender As Object, e As EventArgs) Handles pictureSniper.Click, lblSniper.Click
-        ClaseEnCreacion = 9
-
-        pictureAristocrat.ImageLocation = Application.StartupPath & "\images\characters\" & "Aristocrat" & ".jpg"
-        pictureBandit.ImageLocation = Application.StartupPath & "\images\characters\" & "Bandit" & ".jpg"
-        pictureBarnsby.ImageLocation = Application.StartupPath & "\images\characters\" & "Barnsby" & ".jpg"
-        pictureDoc.ImageLocation = Application.StartupPath & "\images\characters\" & "Doc" & ".jpg"
-        pictureGunslinger.ImageLocation = Application.StartupPath & "\images\characters\" & "Gunslinger" & ".jpg"
-        pictureGunsmith.ImageLocation = Application.StartupPath & "\images\characters\" & "Gunsmith" & ".jpg"
-        pictureJuarez.ImageLocation = Application.StartupPath & "\images\characters\" & "Juarez" & ".jpg"
-        pictureMiner.ImageLocation = Application.StartupPath & "\images\characters\" & "Miner" & ".jpg"
-        pictureRifleman.ImageLocation = Application.StartupPath & "\images\characters\" & "Rifleman" & ".jpg"
-        pictureSniper.ImageLocation = Application.StartupPath & "\images\characters\Selecc_" & "Sniper" & ".jpg"
-        pictureThief.ImageLocation = Application.StartupPath & "\images\characters\" & "Thief" & ".jpg"
-        pictureTrapper.ImageLocation = Application.StartupPath & "\images\characters\" & "Trapper" & ".jpg"
-        pictureTribeWarrior.ImageLocation = Application.StartupPath & "\images\characters\" & "Tribe Warrior" & ".jpg"
-    End Sub
-
-    Private Sub pictureThief_Click(sender As Object, e As EventArgs) Handles pictureThief.Click, lblThief.Click
-        ClaseEnCreacion = 10
-
-        pictureAristocrat.ImageLocation = Application.StartupPath & "\images\characters\" & "Aristocrat" & ".jpg"
-        pictureBandit.ImageLocation = Application.StartupPath & "\images\characters\" & "Bandit" & ".jpg"
-        pictureBarnsby.ImageLocation = Application.StartupPath & "\images\characters\" & "Barnsby" & ".jpg"
-        pictureDoc.ImageLocation = Application.StartupPath & "\images\characters\" & "Doc" & ".jpg"
-        pictureGunslinger.ImageLocation = Application.StartupPath & "\images\characters\" & "Gunslinger" & ".jpg"
-        pictureGunsmith.ImageLocation = Application.StartupPath & "\images\characters\" & "Gunsmith" & ".jpg"
-        pictureJuarez.ImageLocation = Application.StartupPath & "\images\characters\" & "Juarez" & ".jpg"
-        pictureMiner.ImageLocation = Application.StartupPath & "\images\characters\" & "Miner" & ".jpg"
-        pictureRifleman.ImageLocation = Application.StartupPath & "\images\characters\" & "Rifleman" & ".jpg"
-        pictureSniper.ImageLocation = Application.StartupPath & "\images\characters\" & "Sniper" & ".jpg"
-        pictureThief.ImageLocation = Application.StartupPath & "\images\characters\Selecc_" & "Thief" & ".jpg"
-        pictureTrapper.ImageLocation = Application.StartupPath & "\images\characters\" & "Trapper" & ".jpg"
-        pictureTribeWarrior.ImageLocation = Application.StartupPath & "\images\characters\" & "Tribe Warrior" & ".jpg"
-    End Sub
-
-    Private Sub pictureTrapper_Click(sender As Object, e As EventArgs) Handles pictureTrapper.Click, lblTrapper.Click
-        ClaseEnCreacion = 11
-
-        pictureAristocrat.ImageLocation = Application.StartupPath & "\images\characters\" & "Aristocrat" & ".jpg"
-        pictureBandit.ImageLocation = Application.StartupPath & "\images\characters\" & "Bandit" & ".jpg"
-        pictureBarnsby.ImageLocation = Application.StartupPath & "\images\characters\" & "Barnsby" & ".jpg"
-        pictureDoc.ImageLocation = Application.StartupPath & "\images\characters\" & "Doc" & ".jpg"
-        pictureGunslinger.ImageLocation = Application.StartupPath & "\images\characters\" & "Gunslinger" & ".jpg"
-        pictureGunsmith.ImageLocation = Application.StartupPath & "\images\characters\" & "Gunsmith" & ".jpg"
-        pictureJuarez.ImageLocation = Application.StartupPath & "\images\characters\" & "Juarez" & ".jpg"
-        pictureMiner.ImageLocation = Application.StartupPath & "\images\characters\" & "Miner" & ".jpg"
-        pictureRifleman.ImageLocation = Application.StartupPath & "\images\characters\" & "Rifleman" & ".jpg"
-        pictureSniper.ImageLocation = Application.StartupPath & "\images\characters\" & "Sniper" & ".jpg"
-        pictureThief.ImageLocation = Application.StartupPath & "\images\characters\" & "Thief" & ".jpg"
-        pictureTrapper.ImageLocation = Application.StartupPath & "\images\characters\Selecc_" & "Trapper" & ".jpg"
-        pictureTribeWarrior.ImageLocation = Application.StartupPath & "\images\characters\" & "Tribe Warrior" & ".jpg"
-    End Sub
-
-    Private Sub pictureTribeWarrior_Click(sender As Object, e As EventArgs) Handles pictureTribeWarrior.Click, lblTribeWarrior.Click
-        ClaseEnCreacion = 12
-
-        pictureAristocrat.ImageLocation = Application.StartupPath & "\images\characters\" & "Aristocrat" & ".jpg"
-        pictureBandit.ImageLocation = Application.StartupPath & "\images\characters\" & "Bandit" & ".jpg"
-        pictureBarnsby.ImageLocation = Application.StartupPath & "\images\characters\" & "Barnsby" & ".jpg"
-        pictureDoc.ImageLocation = Application.StartupPath & "\images\characters\" & "Doc" & ".jpg"
-        pictureGunslinger.ImageLocation = Application.StartupPath & "\images\characters\" & "Gunslinger" & ".jpg"
-        pictureGunsmith.ImageLocation = Application.StartupPath & "\images\characters\" & "Gunsmith" & ".jpg"
-        pictureJuarez.ImageLocation = Application.StartupPath & "\images\characters\" & "Juarez" & ".jpg"
-        pictureMiner.ImageLocation = Application.StartupPath & "\images\characters\" & "Miner" & ".jpg"
-        pictureRifleman.ImageLocation = Application.StartupPath & "\images\characters\" & "Rifleman" & ".jpg"
-        pictureSniper.ImageLocation = Application.StartupPath & "\images\characters\" & "Sniper" & ".jpg"
-        pictureThief.ImageLocation = Application.StartupPath & "\images\characters\" & "Thief" & ".jpg"
-        pictureTrapper.ImageLocation = Application.StartupPath & "\images\characters\" & "Trapper" & ".jpg"
-        pictureTribeWarrior.ImageLocation = Application.StartupPath & "\images\characters\Selecc_" & "Tribe Warrior" & ".jpg"
-    End Sub
-
-    Private Sub btnAdd_Click(sender As Object, e As EventArgs) Handles btnAdd.Click, pictureAristocrat.DoubleClick, pictureBandit.DoubleClick, pictureBarnsby.DoubleClick, pictureDoc.DoubleClick, pictureGunslinger.DoubleClick, pictureGunsmith.DoubleClick, pictureJuarez.DoubleClick, pictureMiner.DoubleClick, pictureRifleman.DoubleClick, pictureSniper.DoubleClick, pictureThief.DoubleClick, pictureTrapper.DoubleClick, pictureTribeWarrior.DoubleClick
+    Private Sub btnAdd_Click(sender As Object, e As EventArgs) Handles btnAdd.Click
         frmArmas.cbClass.SelectedIndex = ClaseEnCreacion
 
         If checkLoadDefault.Checked = True Then
-
-            If frmArmas.cbClass.SelectedIndex = 0 Then 'Explorador
-                frmArmas.lbNewChar.Items.Add("Aristocrat")
-                frmArmas.lbNewChar.SelectedIndex = frmArmas.lbNewChar.Items.Count - 1
-                frmArmas.cbWeap1.SelectedIndex = 8
-                frmArmas.cbWeap2.SelectedIndex = 3
-                frmArmas.cbWeap3.SelectedIndex = 5
-                frmArmas.checkWeap4.Checked = False
-                frmArmas.cbDefault.SelectedIndex = 0
-
-            ElseIf frmArmas.cbClass.SelectedIndex = 1 Then 'Hombre
-                frmArmas.lbNewChar.Items.Add("Bandit")
-                frmArmas.lbNewChar.SelectedIndex = frmArmas.lbNewChar.Items.Count - 1
-                frmArmas.cbWeap1.SelectedIndex = 4
-                frmArmas.cbWeap2.SelectedIndex = 4
-                frmArmas.cbWeap3.SelectedIndex = 6
-                frmArmas.checkWeap4.Checked = False
-                frmArmas.cbDefault.SelectedIndex = 1
-
-            ElseIf frmArmas.cbClass.SelectedIndex = 2 Then 'Veterano
-                frmArmas.lbNewChar.Items.Add("Barnsby")
-                frmArmas.lbNewChar.SelectedIndex = frmArmas.lbNewChar.Items.Count - 1
-                frmArmas.cbWeap1.SelectedIndex = 8
-                frmArmas.cbWeap2.SelectedIndex = 8
-                frmArmas.cbWeap3.SelectedIndex = 2
-                frmArmas.checkWeap4.Checked = False
-                frmArmas.cbDefault.SelectedIndex = 0
-
-            ElseIf frmArmas.cbClass.SelectedIndex = 3 Then 'Duelista
-                frmArmas.lbNewChar.Items.Add("Doc")
-                frmArmas.lbNewChar.SelectedIndex = frmArmas.lbNewChar.Items.Count - 1
-                frmArmas.cbWeap1.SelectedIndex = 8
-                frmArmas.cbWeap2.SelectedIndex = 6
-                frmArmas.cbWeap3.SelectedIndex = 6
-                frmArmas.checkWeap4.Checked = False
-                frmArmas.cbDefault.SelectedIndex = 1
-
-            ElseIf frmArmas.cbClass.SelectedIndex = 4 Then 'Artillero
-                frmArmas.lbNewChar.Items.Add("Gunslinger")
-                frmArmas.lbNewChar.SelectedIndex = frmArmas.lbNewChar.Items.Count - 1
-                frmArmas.cbWeap1.SelectedIndex = 5
-                frmArmas.cbWeap2.SelectedIndex = 5
-                frmArmas.cbWeap3.SelectedIndex = 6
-                frmArmas.checkWeap4.Checked = True
-                frmArmas.cbAmmo4.SelectedIndex = 1
-                frmArmas.cbDefault.SelectedIndex = 1
-
-            ElseIf frmArmas.cbClass.SelectedIndex = 5 Then 'Armero
-                frmArmas.lbNewChar.Items.Add("Gunsmith")
-                frmArmas.lbNewChar.SelectedIndex = frmArmas.lbNewChar.Items.Count - 1
-                frmArmas.cbWeap1.SelectedIndex = 2
-                frmArmas.cbWeap2.SelectedIndex = 0
-                frmArmas.cbWeap3.SelectedIndex = 6
-                frmArmas.checkWeap4.Checked = False
-                frmArmas.cbDefault.SelectedIndex = 1
-
-            ElseIf frmArmas.cbClass.SelectedIndex = 6 Then 'Oficial
-                frmArmas.lbNewChar.Items.Add("Juarez")
-                frmArmas.lbNewChar.SelectedIndex = frmArmas.lbNewChar.Items.Count - 1
-                frmArmas.cbWeap1.SelectedIndex = 7
-                frmArmas.cbWeap2.SelectedIndex = 7
-                frmArmas.cbWeap3.SelectedIndex = 6
-                frmArmas.checkWeap4.Checked = False
-                frmArmas.cbDefault.SelectedIndex = 1
-
-            ElseIf frmArmas.cbClass.SelectedIndex = 7 Then 'Miner
-                frmArmas.lbNewChar.Items.Add("Miner")
-                frmArmas.lbNewChar.SelectedIndex = frmArmas.lbNewChar.Items.Count - 1
-                frmArmas.cbWeap1.SelectedIndex = 7
-                frmArmas.cbWeap3.SelectedIndex = 6
-                frmArmas.cbWeap2.SelectedIndex = 4
-                frmArmas.checkWeap4.Checked = True
-                frmArmas.cbAmmo4.SelectedIndex = 4
-                frmArmas.cbDefault.SelectedIndex = 2
-
-            ElseIf frmArmas.cbClass.SelectedIndex = 8 Then 'Fusilero
-                frmArmas.lbNewChar.Items.Add("Rifleman")
-                frmArmas.lbNewChar.SelectedIndex = frmArmas.lbNewChar.Items.Count - 1
-                frmArmas.cbWeap1.SelectedIndex = 3
-                frmArmas.cbWeap2.SelectedIndex = 3
-                frmArmas.cbWeap3.SelectedIndex = 4
-                frmArmas.checkWeap4.Checked = False
-                frmArmas.cbDefault.SelectedIndex = 0
-
-            ElseIf frmArmas.cbClass.SelectedIndex = 9 Then 'Tirador
-                frmArmas.lbNewChar.Items.Add("Sniper")
-                frmArmas.lbNewChar.SelectedIndex = frmArmas.lbNewChar.Items.Count - 1
-                frmArmas.cbWeap1.SelectedIndex = 8
-                frmArmas.cbWeap2.SelectedIndex = 7
-                frmArmas.cbWeap3.SelectedIndex = 3
-                frmArmas.checkWeap4.Checked = False
-                frmArmas.cbDefault.SelectedIndex = 0
-
-            ElseIf frmArmas.cbClass.SelectedIndex = 10 Then 'Spy
-                frmArmas.lbNewChar.Items.Add("Thief")
-                frmArmas.lbNewChar.SelectedIndex = frmArmas.lbNewChar.Items.Count - 1
-                frmArmas.cbWeap1.SelectedIndex = 8
-                frmArmas.cbWeap2.SelectedIndex = 1
-                frmArmas.cbWeap3.SelectedIndex = 6
-                frmArmas.checkWeap4.Checked = True
-                frmArmas.cbAmmo4.SelectedIndex = 2
-                frmArmas.cbDefault.SelectedIndex = 2
-
-            ElseIf frmArmas.cbClass.SelectedIndex = 11 Then 'Trampero
-                frmArmas.lbNewChar.Items.Add("Trapper")
-                frmArmas.lbNewChar.SelectedIndex = frmArmas.lbNewChar.Items.Count - 1
-                frmArmas.cbWeap1.SelectedIndex = 8
-                frmArmas.cbWeap2.SelectedIndex = 7
-                frmArmas.cbWeap3.SelectedIndex = 1
-                frmArmas.checkWeap4.Checked = False
-                frmArmas.cbDefault.SelectedIndex = 0
-
-            ElseIf frmArmas.cbClass.SelectedIndex = 12 Then 'Piel Roja
-                frmArmas.lbNewChar.Items.Add("Tribe Warrior")
-                frmArmas.lbNewChar.SelectedIndex = frmArmas.lbNewChar.Items.Count - 1
-                frmArmas.cbWeap1.SelectedIndex = 8
-                frmArmas.cbWeap2.SelectedIndex = 8
-                frmArmas.cbWeap3.SelectedIndex = 0
-                frmArmas.checkWeap4.Checked = False
-                frmArmas.cbDefault.SelectedIndex = 0
-
-            End If
-
+            frmArmas.lbNewChar.Items.Add(ClassNames(ClaseEnCreacion))
+            frmArmas.lbNewChar.SelectedIndex = frmArmas.lbNewChar.Items.Count - 1
+            frmArmas.LoadDefaultWeapons(ClaseEnCreacion)
         End If
 
         frmArmas.TabControlMods.SelectedTab = frmArmas.tabNewMod

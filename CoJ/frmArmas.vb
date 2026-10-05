@@ -63,6 +63,8 @@ Public Class frmArmas
         If Trim(ModIniThief) <> "" Then IniFinal = IniFinal & "Thief" & ModIniThief
         If Trim(ModIniTrapper) <> "" Then IniFinal = IniFinal & "Trapper" & ModIniTrapper
         If Trim(ModIniTribeWarrior) <> "" Then IniFinal = IniFinal & "TribeWarrior" & ModIniTribeWarrior
+        If Trim(ModIniRancher) <> "" Then IniFinal = IniFinal & "Rancher" & ModIniRancher
+        If Trim(ModIniRedneck) <> "" Then IniFinal = IniFinal & "Redneck" & ModIniRedneck
 
 
 
@@ -308,6 +310,12 @@ Public Class frmArmas
         ElseIf cbClass.SelectedIndex = 12 Then
             clase = "_NetWeapon_TribeWarrior_Properties.scr"
 
+        ElseIf cbClass.SelectedIndex = 13 Then
+            clase = "_NetWeapon_Rancher_Properties.scr"
+
+        ElseIf cbClass.SelectedIndex = 14 Then
+            clase = "_NetWeapon_Redneck_Properties.scr"
+
         End If
 
         'Mostramos la imagen del personaje seleccionado.
@@ -358,9 +366,14 @@ Public Class frmArmas
 
         If restoreclass = vbYes Then
             checkHC.Checked = False
-            If System.IO.Directory.Exists(ruta & rutaPlayer) Then
-                My.Computer.FileSystem.DeleteDirectory(ruta & rutaPlayer, FileIO.DeleteDirectoryOption.DeleteAllContents)
-            End If
+            ' Only the class weapon files and the hardcore weapons file go: the Player folder can hold the server's
+            ' own files too (and on Docker it is a mounted volume that cannot be deleted).
+            Try
+                ClearPlayerClassFiles(ruta & rutaPlayer)
+                If File.Exists(ruta & rutaPlayer & "WeaponsParams.scr") Then File.Delete(ruta & rutaPlayer & "WeaponsParams.scr")
+            Catch ex As Exception
+                MessageBox.Show("The classes could not be restored: " & ex.Message, "", MessageBoxButtons.OK, MessageBoxIcon.Exclamation)
+            End Try
 
         End If
 
@@ -454,7 +467,21 @@ Public Class frmArmas
             cbWeap3.SelectedIndex = 0
             checkWeap4.Checked = False
             cbDefault.SelectedIndex = 0
+        ElseIf cbClass.SelectedIndex >= 13 Then 'Rancher / Redneck (IranCoJ New Classes)
+            LoadDefaultWeapons(cbClass.SelectedIndex)
         End If
+    End Sub
+
+    ' A class's own weapons (ClassDefaults), as the Load default weapons button and the class picker set them:
+    ' default weapon, left / right / both-hands weapon and dynamite. The ammo stays as it is.
+    Public Sub LoadDefaultWeapons(ByVal classIndex As Integer)
+        Dim ini As String = ClassDefaults(classIndex)
+        cbWeap1.SelectedIndex = IniIndex(ini, 2)
+        cbWeap2.SelectedIndex = IniIndex(ini, 3)
+        cbWeap3.SelectedIndex = IniIndex(ini, 4)
+        checkWeap4.Checked = IniIndex(ini, 1) = 1
+        If checkWeap4.Checked Then cbAmmo4.SelectedIndex = IniIndex(ini, 9)
+        cbDefault.SelectedIndex = IniIndex(ini, 0)
     End Sub
 
     Private Sub checkHC_CheckedChanged(sender As Object, e As EventArgs) Handles checkHC.CheckedChanged
@@ -502,58 +529,23 @@ Public Class frmArmas
     Private Sub lbNewChar_SelectedIndexChanged(sender As Object, e As EventArgs) Handles lbNewChar.SelectedIndexChanged
         Dim iniActual As String = ""
 
-        If lbNewChar.SelectedItem = "Aristocrat" Then
-            currentFile = "_NetWeapon_Aristocrat_Properties.scr"
-            iniActual = ModIniAristocrat
-        ElseIf lbNewChar.SelectedItem = "Bandit" Then
-            currentFile = "_NetWeapon_Bandit_Properties.scr"
-            iniActual = ModIniBandit
-        ElseIf lbNewChar.SelectedItem = "Barnsby" Then
-            currentFile = "_NetWeapon_Barnsby_Properties.scr"
-            iniActual = ModIniBarnsby
-        ElseIf lbNewChar.SelectedItem = "Doc" Then
-            currentFile = "_NetWeapon_Doc_Properties.scr"
-            iniActual = ModIniDoc
-        ElseIf lbNewChar.SelectedItem = "Gunslinger" Then
-            currentFile = "_NetWeapon_Gunslinger_Properties.scr"
-            iniActual = ModIniGunslinger
-        ElseIf lbNewChar.SelectedItem = "Gunsmith" Then
-            currentFile = "_NetWeapon_Gunsmith_Properties.scr"
-            iniActual = ModIniGunsmith
-        ElseIf lbNewChar.SelectedItem = "Juarez" Then
-            currentFile = "_NetWeapon_Juarez_Properties.scr"
-            iniActual = ModIniJuarez
-        ElseIf lbNewChar.SelectedItem = "Miner" Then
-            currentFile = "_NetWeapon_Miner_Properties.scr"
-            iniActual = ModIniMiner
-        ElseIf lbNewChar.SelectedItem = "Rifleman" Then
-            currentFile = "_NetWeapon_Rifleman_Properties.scr"
-            iniActual = ModIniRifleman
-        ElseIf lbNewChar.SelectedItem = "Sniper" Then
-            currentFile = "_NetWeapon_Sniper_Properties.scr"
-            iniActual = ModIniSniper
-        ElseIf lbNewChar.SelectedItem = "Thief" Then
-            currentFile = "_NetWeapon_Thief_Properties.scr"
-            iniActual = ModIniThief
-        ElseIf lbNewChar.SelectedItem = "Trapper" Then
-            currentFile = "_NetWeapon_Trapper_Properties.scr"
-            iniActual = ModIniTrapper
-        ElseIf lbNewChar.SelectedItem = "Tribe Warrior" Then
-            currentFile = "_NetWeapon_TribeWarrior_Properties.scr"
-            iniActual = ModIniTribeWarrior
+        Dim key As String = ClassKeyOf(lbNewChar.SelectedItem)
+        If key <> "" Then
+            currentFile = "_NetWeapon_" & key & "_Properties.scr"
+            iniActual = GetModIni(key)
         End If
 
         If Len(iniActual) > 0 Then
-            cbDefault.SelectedIndex = iniActual.Substring(0, 1)
-            checkWeap4.Checked = iniActual.Substring(1, 1)
-            cbWeap1.SelectedIndex = iniActual.Substring(2, 1)
-            cbWeap2.SelectedIndex = iniActual.Substring(3, 1)
-            cbWeap3.SelectedIndex = iniActual.Substring(4, 1)
-            cbAmmo1.SelectedIndex = iniActual.Substring(5, 1)
-            cbAmmo2.SelectedIndex = iniActual.Substring(6, 1)
-            cbAmmo5.SelectedIndex = iniActual.Substring(7, 1)
-            cbAmmo3.SelectedIndex = iniActual.Substring(8, 1)
-            cbAmmo4.SelectedIndex = iniActual.Substring(9, 1)
+            cbDefault.SelectedIndex = IniIndex(iniActual, 0)
+            checkWeap4.Checked = IniIndex(iniActual, 1) <> 0
+            cbWeap1.SelectedIndex = IniIndex(iniActual, 2)
+            cbWeap2.SelectedIndex = IniIndex(iniActual, 3)
+            cbWeap3.SelectedIndex = IniIndex(iniActual, 4)
+            cbAmmo1.SelectedIndex = IniIndex(iniActual, 5)
+            cbAmmo2.SelectedIndex = IniIndex(iniActual, 6)
+            cbAmmo5.SelectedIndex = IniIndex(iniActual, 7)
+            cbAmmo3.SelectedIndex = IniIndex(iniActual, 8)
+            cbAmmo4.SelectedIndex = IniIndex(iniActual, 9)
         End If
 
         pictureClass.ImageLocation = Application.StartupPath & "\images\characters\" & lbNewChar.Text & ".jpg"
@@ -788,13 +780,15 @@ Public Class frmArmas
 
             If msgActiveMod = vbYes Then
 
-                If System.IO.Directory.Exists(ruta & rutaPlayer) Then
-                    My.Computer.FileSystem.DeleteDirectory(ruta & rutaPlayer, FileIO.DeleteDirectoryOption.DeleteAllContents)
-                End If
-
-                If System.IO.Directory.Exists(ruta & rutaTemp) Then
-                    My.Computer.FileSystem.CopyDirectory(ruta & rutaTemp, ruta & rutaPlayer)
-                End If
+                ' The Player folder is never deleted (it can hold the server's own files, and on Docker it is a
+                ' mounted volume): the old class weapon files are taken out and the mod's files copied over.
+                Try
+                    ClearPlayerClassFiles(ruta & rutaPlayer)
+                    If System.IO.Directory.Exists(ruta & rutaTemp) Then CopyModFiles(ruta & rutaTemp, ruta & rutaPlayer)
+                Catch ex As Exception
+                    MessageBox.Show("The mod could not be set: " & ex.Message, "", MessageBoxButtons.OK, MessageBoxIcon.Exclamation)
+                    Exit Sub
+                End Try
 
             End If
 
@@ -844,32 +838,9 @@ Public Class frmArmas
             TntSiNo = 0
         End If
 
-        If lbNewChar.Text = "Aristocrat" Then
-            ModIniAristocrat = cbDefault.SelectedIndex.ToString & TntSiNo & cbWeap1.SelectedIndex.ToString & cbWeap2.SelectedIndex.ToString & cbWeap3.SelectedIndex.ToString & cbAmmo1.SelectedIndex.ToString & cbAmmo2.SelectedIndex.ToString & cbAmmo5.SelectedIndex.ToString & cbAmmo3.SelectedIndex.ToString & IndexSelecEnCbammo4
-        ElseIf lbNewChar.Text = "Bandit" Then
-            ModIniBandit = cbDefault.SelectedIndex.ToString & TntSiNo & cbWeap1.SelectedIndex.ToString & cbWeap2.SelectedIndex.ToString & cbWeap3.SelectedIndex.ToString & cbAmmo1.SelectedIndex.ToString & cbAmmo2.SelectedIndex.ToString & cbAmmo5.SelectedIndex.ToString & cbAmmo3.SelectedIndex.ToString & IndexSelecEnCbammo4
-        ElseIf lbNewChar.Text = "Barnsby" Then
-            ModIniBarnsby = cbDefault.SelectedIndex.ToString & TntSiNo & cbWeap1.SelectedIndex.ToString & cbWeap2.SelectedIndex.ToString & cbWeap3.SelectedIndex.ToString & cbAmmo1.SelectedIndex.ToString & cbAmmo2.SelectedIndex.ToString & cbAmmo5.SelectedIndex.ToString & cbAmmo3.SelectedIndex.ToString & IndexSelecEnCbammo4
-        ElseIf lbNewChar.Text = "Doc" Then
-            ModIniDoc = cbDefault.SelectedIndex.ToString & TntSiNo & cbWeap1.SelectedIndex.ToString & cbWeap2.SelectedIndex.ToString & cbWeap3.SelectedIndex.ToString & cbAmmo1.SelectedIndex.ToString & cbAmmo2.SelectedIndex.ToString & cbAmmo5.SelectedIndex.ToString & cbAmmo3.SelectedIndex.ToString & IndexSelecEnCbammo4
-        ElseIf lbNewChar.Text = "Gunslinger" Then
-            ModIniGunslinger = cbDefault.SelectedIndex.ToString & TntSiNo & cbWeap1.SelectedIndex.ToString & cbWeap2.SelectedIndex.ToString & cbWeap3.SelectedIndex.ToString & cbAmmo1.SelectedIndex.ToString & cbAmmo2.SelectedIndex.ToString & cbAmmo5.SelectedIndex.ToString & cbAmmo3.SelectedIndex.ToString & IndexSelecEnCbammo4
-        ElseIf lbNewChar.Text = "Gunsmith" Then
-            ModIniGunsmith = cbDefault.SelectedIndex.ToString & TntSiNo & cbWeap1.SelectedIndex.ToString & cbWeap2.SelectedIndex.ToString & cbWeap3.SelectedIndex.ToString & cbAmmo1.SelectedIndex.ToString & cbAmmo2.SelectedIndex.ToString & cbAmmo5.SelectedIndex.ToString & cbAmmo3.SelectedIndex.ToString & IndexSelecEnCbammo4
-        ElseIf lbNewChar.Text = "Juarez" Then
-            ModIniJuarez = cbDefault.SelectedIndex.ToString & TntSiNo & cbWeap1.SelectedIndex.ToString & cbWeap2.SelectedIndex.ToString & cbWeap3.SelectedIndex.ToString & cbAmmo1.SelectedIndex.ToString & cbAmmo2.SelectedIndex.ToString & cbAmmo5.SelectedIndex.ToString & cbAmmo3.SelectedIndex.ToString & IndexSelecEnCbammo4
-        ElseIf lbNewChar.Text = "Miner" Then
-            ModIniMiner = cbDefault.SelectedIndex.ToString & TntSiNo & cbWeap1.SelectedIndex.ToString & cbWeap2.SelectedIndex.ToString & cbWeap3.SelectedIndex.ToString & cbAmmo1.SelectedIndex.ToString & cbAmmo2.SelectedIndex.ToString & cbAmmo5.SelectedIndex.ToString & cbAmmo3.SelectedIndex.ToString & IndexSelecEnCbammo4
-        ElseIf lbNewChar.Text = "Rifleman" Then
-            ModIniRifleman = cbDefault.SelectedIndex.ToString & TntSiNo & cbWeap1.SelectedIndex.ToString & cbWeap2.SelectedIndex.ToString & cbWeap3.SelectedIndex.ToString & cbAmmo1.SelectedIndex.ToString & cbAmmo2.SelectedIndex.ToString & cbAmmo5.SelectedIndex.ToString & cbAmmo3.SelectedIndex.ToString & IndexSelecEnCbammo4
-        ElseIf lbNewChar.Text = "Sniper" Then
-            ModIniSniper = cbDefault.SelectedIndex.ToString & TntSiNo & cbWeap1.SelectedIndex.ToString & cbWeap2.SelectedIndex.ToString & cbWeap3.SelectedIndex.ToString & cbAmmo1.SelectedIndex.ToString & cbAmmo2.SelectedIndex.ToString & cbAmmo5.SelectedIndex.ToString & cbAmmo3.SelectedIndex.ToString & IndexSelecEnCbammo4
-        ElseIf lbNewChar.Text = "Thief" Then
-            ModIniThief = cbDefault.SelectedIndex.ToString & TntSiNo & cbWeap1.SelectedIndex.ToString & cbWeap2.SelectedIndex.ToString & cbWeap3.SelectedIndex.ToString & cbAmmo1.SelectedIndex.ToString & cbAmmo2.SelectedIndex.ToString & cbAmmo5.SelectedIndex.ToString & cbAmmo3.SelectedIndex.ToString & IndexSelecEnCbammo4
-        ElseIf lbNewChar.Text = "Trapper" Then
-            ModIniTrapper = cbDefault.SelectedIndex.ToString & TntSiNo & cbWeap1.SelectedIndex.ToString & cbWeap2.SelectedIndex.ToString & cbWeap3.SelectedIndex.ToString & cbAmmo1.SelectedIndex.ToString & cbAmmo2.SelectedIndex.ToString & cbAmmo5.SelectedIndex.ToString & cbAmmo3.SelectedIndex.ToString & IndexSelecEnCbammo4
-        ElseIf lbNewChar.Text = "Tribe Warrior" Then
-            ModIniTribeWarrior = cbDefault.SelectedIndex.ToString & TntSiNo & cbWeap1.SelectedIndex.ToString & cbWeap2.SelectedIndex.ToString & cbWeap3.SelectedIndex.ToString & cbAmmo1.SelectedIndex.ToString & cbAmmo2.SelectedIndex.ToString & cbAmmo5.SelectedIndex.ToString & cbAmmo3.SelectedIndex.ToString & IndexSelecEnCbammo4
+        Dim key As String = ClassKeyOf(lbNewChar.Text)
+        If key <> "" Then
+            SetModIni(key, IniDigit(cbDefault.SelectedIndex) & TntSiNo & IniDigit(cbWeap1.SelectedIndex) & IniDigit(cbWeap2.SelectedIndex) & IniDigit(cbWeap3.SelectedIndex) & IniDigit(cbAmmo1.SelectedIndex) & IniDigit(cbAmmo2.SelectedIndex) & IniDigit(cbAmmo5.SelectedIndex) & IniDigit(cbAmmo3.SelectedIndex) & IndexSelecEnCbammo4)
         End If
     End Sub
 
@@ -919,6 +890,8 @@ Public Class frmArmas
         ModIniThief = "2181613032"
         ModIniTrapper = "0087113030"
         ModIniTribeWarrior = "0088013030"
+        ModIniRancher = ClassDefaults(13)
+        ModIniRedneck = ClassDefaults(14)
 
         lbNewChar.Items.Add("Aristocrat")
         lbNewChar.Items.Add("Bandit")
@@ -933,6 +906,8 @@ Public Class frmArmas
         lbNewChar.Items.Add("Thief")
         lbNewChar.Items.Add("Trapper")
         lbNewChar.Items.Add("Tribe Warrior")
+        lbNewChar.Items.Add("Rancher")
+        lbNewChar.Items.Add("Redneck")
 
         TabControlMods.Enabled = True
         panelModificarArmas.Enabled = True
@@ -957,287 +932,79 @@ Public Class frmArmas
         'Comprobamos que la ruta especificada es correcta y es de un servidor dedicado.
         If System.IO.File.Exists(ruta & "\CoJ2Game_x86_ds.exe") And System.IO.File.Exists(ruta & "\CoJ2_x86_ds.dll") Then
 
-
-            Dim WeaponLeft As String = ""
-            Dim WeaponRight As String = ""
-            Dim WeaponBoth As String = ""
-            Dim AmmoPistol As String = ""
-            Dim AmmoRifle As String = ""
-            Dim AmmoShotgun As String = ""
-            Dim AmmoArrows As String = ""
-            Dim AmmoTNT As Integer = 0
-            Dim TieneTNT As String = ""
-            Dim PredeterminadaRight As String = ""
-            Dim PredeterminadaLeft As String = ""
-
             'Antes de llamar a GuardarClases() debe estar creada la carpeta destino del mod
+            For i = 0 To ClassKeys.Length - 1
 
+                If Not lbNewChar.Items.Contains(ClassNames(i)) Then Continue For
+                clase = ClassKeys(i)
+                Dim ModIniALeer As String = GetModIni(clase)
+                If ModIniALeer = "" Then Continue For
 
+                Dim fichero As String = rutaAppData & "\Mods\" & modName & "\_NetWeapon_" & clase & "_Properties.scr"
 
-            For i = 1 To 13
+                'Borramos el archivo NetWeapon de la clase seleccionada, si existe.
+                If System.IO.File.Exists(fichero) Then My.Computer.FileSystem.DeleteFile(fichero)
 
-                Dim ModIniALeer As String = ""
+                'Armas: mano izquierda (3a posicion), mano derecha (4a), dos manos (5a). "" = ninguna.
+                Dim WeaponLeft As String = Quoted(OneHandWeapons(IniIndex(ModIniALeer, 2)))
+                Dim WeaponRight As String = Quoted(OneHandWeapons(IniIndex(ModIniALeer, 3)))
+                Dim WeaponBoth As String = Quoted(BothHandsWeapons(IniIndex(ModIniALeer, 4)))
 
-                If i = 1 And lbNewChar.Items.Contains("Aristocrat") Then
-                    clase = "Aristocrat"
-                    ModIniALeer = ModIniAristocrat
-                End If
-                If i = 2 And lbNewChar.Items.Contains("Bandit") Then
-                    clase = "Bandit"
-                    ModIniALeer = ModIniBandit
-                End If
-                If i = 3 And lbNewChar.Items.Contains("Barnsby") Then
-                    clase = "Barnsby"
-                    ModIniALeer = ModIniBarnsby
-                End If
-                If i = 4 And lbNewChar.Items.Contains("Doc") Then
-                    clase = "Doc"
-                    ModIniALeer = ModIniDoc
-                End If
-                If i = 5 And lbNewChar.Items.Contains("Gunslinger") Then
-                    clase = "Gunslinger"
-                    ModIniALeer = ModIniGunslinger
-                End If
-                If i = 6 And lbNewChar.Items.Contains("Gunsmith") Then
-                    clase = "Gunsmith"
-                    ModIniALeer = ModIniGunsmith
-                End If
-                If i = 7 And lbNewChar.Items.Contains("Juarez") Then
-                    clase = "Juarez"
-                    ModIniALeer = ModIniJuarez
-                End If
-                If i = 8 And lbNewChar.Items.Contains("Miner") Then
-                    clase = "Miner"
-                    ModIniALeer = ModIniMiner
-                End If
-                If i = 9 And lbNewChar.Items.Contains("Rifleman") Then
-                    clase = "Rifleman"
-                    ModIniALeer = ModIniRifleman
-                End If
-                If i = 10 And lbNewChar.Items.Contains("Sniper") Then
-                    clase = "Sniper"
-                    ModIniALeer = ModIniSniper
-                End If
-                If i = 11 And lbNewChar.Items.Contains("Thief") Then
-                    clase = "Thief"
-                    ModIniALeer = ModIniThief
-                End If
-                If i = 12 And lbNewChar.Items.Contains("Trapper") Then
-                    clase = "Trapper"
-                    ModIniALeer = ModIniTrapper
-                End If
-                If i = 13 And lbNewChar.Items.Contains("Tribe Warrior") Then
-                    clase = "TribeWarrior"
-                    ModIniALeer = ModIniTribeWarrior
-                End If
+                'Municion: pistola (6a), rifle (7a), escopeta (8a), flechas (9a); TNT si/no (2a) y cantidad (10a).
+                Dim AmmoPistol As Integer = AmmoAmounts(IniIndex(ModIniALeer, 5))
+                Dim AmmoRifle As Integer = AmmoAmounts(IniIndex(ModIniALeer, 6))
+                Dim AmmoShotgun As Integer = AmmoAmounts(IniIndex(ModIniALeer, 7))
+                Dim AmmoArrows As Integer = AmmoAmounts(IniIndex(ModIniALeer, 8))
+                Dim TieneTNT As Boolean = IniIndex(ModIniALeer, 1) <> 0
+                Dim AmmoTNT As Integer = IniIndex(ModIniALeer, 9) + 1
 
-                If ModIniALeer <> "" Then
-
-                    'Borramos el archivo NetWeapon de la clase seleccionada, si existe.
-                    If System.IO.File.Exists(rutaAppData & "\Mods\" & modName & "\_NetWeapon_" & clase & "_Properties.scr") Then
-                        My.Computer.FileSystem.DeleteFile(rutaAppData & "\Mods\" & modName & "\_NetWeapon_" & clase & "_Properties.scr")
-                    End If
-
-                    'Abrimos el archivo de la clase seleccionada para modificarlo.
-                    write = File.AppendText(rutaAppData & "\Mods\" & modName & "\_NetWeapon_" & clase & "_Properties.scr")
-                    write.WriteLine("!NetAmmo(s, i)")
-                    write.WriteLine("!NetWeapon(s)")
-                    write.WriteLine("!NetDefaultWeaponL(s)")
-                    write.WriteLine("!NetDefaultWeaponR(s)")
-
-                    'Sacamos del modini el arma de la mano izquierda, que está en la tercera posición de la cadena.
-                    If ModIniALeer.Substring(2, 1) = 0 Then
-                        WeaponLeft = """WeaponPistolCogswellNet"""
-                    ElseIf ModIniALeer.Substring(2, 1) = 1 Then
-                        WeaponLeft = """WeaponPistolDerringerNet"""
-                    ElseIf ModIniALeer.Substring(2, 1) = 2 Then
-                        WeaponLeft = """WeaponPistolLemantNet"""
-                    ElseIf ModIniALeer.Substring(2, 1) = 3 Then
-                        WeaponLeft = """WeaponPistolPeacemakerNet"""
-                    ElseIf ModIniALeer.Substring(2, 1) = 4 Then
-                        WeaponLeft = """WeaponRifleRemingtonSawOffNet"""
-                    ElseIf ModIniALeer.Substring(2, 1) = 5 Then
-                        WeaponLeft = """WeaponPistolSchofieldNet"""
-                    ElseIf ModIniALeer.Substring(2, 1) = 6 Then
-                        WeaponLeft = """WeaponPistolVolcanicNet"""
-                    ElseIf ModIniALeer.Substring(2, 1) = 7 Then
-                        WeaponLeft = """WeaponPistolWalkerNet"""
-                    ElseIf ModIniALeer.Substring(2, 1) = 8 Then
-                        WeaponLeft = ""
-                    End If
-
-                    'Sacamos del modini el arma de la mano derecha, que está en la cuarta posición de la cadena.
-                    If ModIniALeer.Substring(3, 1) = 0 Then
-                        WeaponRight = """WeaponPistolCogswellNet"""
-                    ElseIf ModIniALeer.Substring(3, 1) = 1 Then
-                        WeaponRight = """WeaponPistolDerringerNet"""
-                    ElseIf ModIniALeer.Substring(3, 1) = 2 Then
-                        WeaponRight = """WeaponPistolLemantNet"""
-                    ElseIf ModIniALeer.Substring(3, 1) = 3 Then
-                        WeaponRight = """WeaponPistolPeacemakerNet"""
-                    ElseIf ModIniALeer.Substring(3, 1) = 4 Then
-                        WeaponRight = """WeaponRifleRemingtonSawOffNet"""
-                    ElseIf ModIniALeer.Substring(3, 1) = 5 Then
-                        WeaponRight = """WeaponPistolSchofieldNet"""
-                    ElseIf ModIniALeer.Substring(3, 1) = 6 Then
-                        WeaponRight = """WeaponPistolVolcanicNet"""
-                    ElseIf ModIniALeer.Substring(3, 1) = 7 Then
-                        WeaponRight = """WeaponPistolWalkerNet"""
-                    ElseIf ModIniALeer.Substring(3, 1) = 8 Then
-                        WeaponRight = ""
-                    End If
-
-                    'Sacamos del modini el arma de dos manos, que está en la quinta posición de la cadena.
-                    If ModIniALeer.Substring(4, 1) = 0 Then
-                        WeaponBoth = """WeaponBowNet"""
-                    ElseIf ModIniALeer.Substring(4, 1) = 1 Then
-                        WeaponBoth = """WeaponRifleRemingtonNet"""
-                    ElseIf ModIniALeer.Substring(4, 1) = 2 Then
-                        WeaponBoth = """WeaponRifleSharpsNet"""
-                    ElseIf ModIniALeer.Substring(4, 1) = 3 Then
-                        WeaponBoth = """WeaponRifleSharpsScopeNet"""
-                    ElseIf ModIniALeer.Substring(4, 1) = 4 Then
-                        WeaponBoth = """WeaponRifleWinchesterNet"""
-                    ElseIf ModIniALeer.Substring(4, 1) = 5 Then
-                        WeaponBoth = """WeaponRifleWinchesterScopeNet"""
-                    ElseIf ModIniALeer.Substring(4, 1) = 6 Then
-                        WeaponBoth = ""
-                    End If
-
-                    'Sacamos del modini la munición de pistola, de la sexta posición.
-                    If ModIniALeer.Substring(5, 1) = 0 Then
-                        AmmoPistol = 35
-                    ElseIf ModIniALeer.Substring(5, 1) = 1 Then
-                        AmmoPistol = 45
-                    ElseIf ModIniALeer.Substring(5, 1) = 2 Then
-                        AmmoPistol = 55
-                    ElseIf ModIniALeer.Substring(5, 1) = 3 Then
-                        AmmoPistol = 65
-                    ElseIf ModIniALeer.Substring(5, 1) = 4 Then
-                        AmmoPistol = 75
-                    ElseIf ModIniALeer.Substring(5, 1) = 5 Then
-                        AmmoPistol = 95
-                    ElseIf ModIniALeer.Substring(5, 1) = 6 Then
-                        AmmoPistol = 140
-                    ElseIf ModIniALeer.Substring(5, 1) = 7 Then
-                        AmmoPistol = 190
-                    End If
-
-                    'Sacamos del modini la munición de rifle, de la séptima posición.
-                    If ModIniALeer.Substring(6, 1) = 0 Then
-                        AmmoRifle = 35
-                    ElseIf ModIniALeer.Substring(6, 1) = 1 Then
-                        AmmoRifle = 45
-                    ElseIf ModIniALeer.Substring(6, 1) = 2 Then
-                        AmmoRifle = 55
-                    ElseIf ModIniALeer.Substring(6, 1) = 3 Then
-                        AmmoRifle = 65
-                    ElseIf ModIniALeer.Substring(6, 1) = 4 Then
-                        AmmoRifle = 75
-                    ElseIf ModIniALeer.Substring(6, 1) = 5 Then
-                        AmmoRifle = 95
-                    ElseIf ModIniALeer.Substring(6, 1) = 6 Then
-                        AmmoRifle = 140
-                    ElseIf ModIniALeer.Substring(6, 1) = 7 Then
-                        AmmoRifle = 190
-                    End If
-
-                    'Sacamos del modini la munición de shotgun, de la octava posición.
-                    If ModIniALeer.Substring(7, 1) = 0 Then
-                        AmmoShotgun = 35
-                    ElseIf ModIniALeer.Substring(7, 1) = 1 Then
-                        AmmoShotgun = 45
-                    ElseIf ModIniALeer.Substring(7, 1) = 2 Then
-                        AmmoShotgun = 55
-                    ElseIf ModIniALeer.Substring(7, 1) = 3 Then
-                        AmmoShotgun = 65
-                    ElseIf ModIniALeer.Substring(7, 1) = 4 Then
-                        AmmoShotgun = 75
-                    ElseIf ModIniALeer.Substring(7, 1) = 5 Then
-                        AmmoShotgun = 95
-                    ElseIf ModIniALeer.Substring(7, 1) = 6 Then
-                        AmmoShotgun = 140
-                    ElseIf ModIniALeer.Substring(7, 1) = 7 Then
-                        AmmoShotgun = 190
-                    End If
-
-                    'Sacamos del modini la munición de arrows, de la novena posición.
-                    If ModIniALeer.Substring(8, 1) = 0 Then
-                        AmmoArrows = 35
-                    ElseIf ModIniALeer.Substring(8, 1) = 1 Then
-                        AmmoArrows = 45
-                    ElseIf ModIniALeer.Substring(8, 1) = 2 Then
-                        AmmoArrows = 55
-                    ElseIf ModIniALeer.Substring(8, 1) = 3 Then
-                        AmmoArrows = 65
-                    ElseIf ModIniALeer.Substring(8, 1) = 4 Then
-                        AmmoArrows = 75
-                    ElseIf ModIniALeer.Substring(8, 1) = 5 Then
-                        AmmoArrows = 95
-                    ElseIf ModIniALeer.Substring(8, 1) = 6 Then
-                        AmmoArrows = 140
-                    ElseIf ModIniALeer.Substring(8, 1) = 7 Then
-                        AmmoArrows = 190
-                    End If
-
-                    'Sacamos del modini si se utilizarán tnt o no, de la segunda posición.
-                    If ModIniALeer.Substring(1, 1) = 0 Then
-                        TieneTNT = 0
-                    Else
-                        TieneTNT = 1
-                    End If
-
-                    'Sacamos del modini la cantidad de tnt, de la décima posición.
-                    If ModIniALeer.Substring(9, 1) = 0 Then
-                        AmmoTNT = 1
-                    ElseIf ModIniALeer.Substring(9, 1) = 1 Then
-                        AmmoTNT = 2
-                    ElseIf ModIniALeer.Substring(9, 1) = 2 Then
-                        AmmoTNT = 3
-                    ElseIf ModIniALeer.Substring(9, 1) = 3 Then
-                        AmmoTNT = 4
-                    ElseIf ModIniALeer.Substring(9, 1) = 4 Then
-                        AmmoTNT = 5
-                    End If
-
-                    'Sacamos las armas predeterminadas del modini, primera posición.
-                    If ModIniALeer.Substring(0, 1) = 0 Then 'Arma de dos manos
-                        PredeterminadaLeft = ""
+                'Armas predeterminadas, primera posicion.
+                Dim PredeterminadaLeft As String = ""
+                Dim PredeterminadaRight As String = ""
+                Select Case IniIndex(ModIniALeer, 0)
+                    Case 0 'Arma de dos manos
                         PredeterminadaRight = WeaponBoth
-                    ElseIf ModIniALeer.Substring(0, 1) = 1 Then 'Dos pistolas
+                    Case 1 'Dos pistolas
                         PredeterminadaLeft = WeaponLeft
                         PredeterminadaRight = WeaponRight
-                    ElseIf ModIniALeer.Substring(0, 1) = 2 Then 'PistolaR + TNT
+                    Case 2 'PistolaR + TNT
                         PredeterminadaLeft = """WeaponDynamiteStickNet"""
                         PredeterminadaRight = WeaponRight
-                    End If
+                End Select
 
-                    'Escritura de todas las armas y municiones en el archivo NetWeapon
-                    If WeaponLeft <> "" Then write.WriteLine("NetWeapon(" & WeaponLeft & ")")
-                    If WeaponRight <> "" Then write.WriteLine("NetWeapon(" & WeaponRight & ")")
-                    If WeaponBoth <> "" Then write.WriteLine("NetWeapon(" & WeaponBoth & ")")
-                    If TieneTNT = 1 Then
-                        For n = 1 To AmmoTNT
-                            write.WriteLine("NetWeapon(""WeaponDynamiteStickNet"")")
-                        Next
-                    End If
-                    write.WriteLine("NetAmmo(""AmmoPistol"", " & AmmoPistol & ")")
-                    write.WriteLine("NetAmmo(""AmmoRifle"", " & AmmoRifle & ")")
-                    write.WriteLine("NetAmmo(""AmmoShotgun"", " & AmmoShotgun & ")")
-                    write.WriteLine("NetAmmo(""AmmoArrows"", " & AmmoArrows & ")")
-
-                    If PredeterminadaLeft <> "" Then write.WriteLine("NetDefaultWeaponL(" & PredeterminadaLeft & ")")
-                    If PredeterminadaRight <> "" Then write.WriteLine("NetDefaultWeaponR(" & PredeterminadaRight & ")")
-
-                    write.Close() 'Terminamos la escritura del archivo NetWeapon y lo CERRAMOS.
-
+                'Escritura de todas las armas y municiones en el archivo NetWeapon
+                write = File.AppendText(fichero)
+                write.WriteLine("!NetAmmo(s, i)")
+                write.WriteLine("!NetWeapon(s)")
+                write.WriteLine("!NetDefaultWeaponL(s)")
+                write.WriteLine("!NetDefaultWeaponR(s)")
+                If WeaponLeft <> "" Then write.WriteLine("NetWeapon(" & WeaponLeft & ")")
+                If WeaponRight <> "" Then write.WriteLine("NetWeapon(" & WeaponRight & ")")
+                If WeaponBoth <> "" Then write.WriteLine("NetWeapon(" & WeaponBoth & ")")
+                If TieneTNT Then
+                    For n = 1 To AmmoTNT
+                        write.WriteLine("NetWeapon(""WeaponDynamiteStickNet"")")
+                    Next
                 End If
+                write.WriteLine("NetAmmo(""AmmoPistol"", " & AmmoPistol & ")")
+                write.WriteLine("NetAmmo(""AmmoRifle"", " & AmmoRifle & ")")
+                write.WriteLine("NetAmmo(""AmmoShotgun"", " & AmmoShotgun & ")")
+                write.WriteLine("NetAmmo(""AmmoArrows"", " & AmmoArrows & ")")
+
+                If PredeterminadaLeft <> "" Then write.WriteLine("NetDefaultWeaponL(" & PredeterminadaLeft & ")")
+                If PredeterminadaRight <> "" Then write.WriteLine("NetDefaultWeaponR(" & PredeterminadaRight & ")")
+
+                write.Close() 'Terminamos la escritura del archivo NetWeapon y lo CERRAMOS.
             Next
 
         End If
 
 
     End Sub
+
+    Private Shared Function Quoted(ByVal weapon As String) As String
+        Return If(weapon = "", "", """" & weapon & """")
+    End Function
 
     Private Sub btnHelp_Click(sender As Object, e As EventArgs) Handles btnHelp.Click
         Cursor = Cursors.WaitCursor

@@ -62,7 +62,119 @@ Module Module1
     Public ModIniThief As String = ""
     Public ModIniTrapper As String = ""
     Public ModIniTribeWarrior As String = ""
+    Public ModIniRancher As String = ""
+    Public ModIniRedneck As String = ""
     Public ConfiguracionModInicial As String = ""
+
+    ' The classes, in the order of the class lists: shown name (lists and art), file key (_NetWeapon_<key>_Properties.scr
+    ' and mod.ini) and the class's own weapons as a mod.ini string. Rancher and Redneck are the IranCoJ New Classes.
+    Public ReadOnly ClassNames() As String = {"Aristocrat", "Bandit", "Barnsby", "Doc", "Gunslinger", "Gunsmith", "Juarez", "Miner", "Rifleman", "Sniper", "Thief", "Trapper", "Tribe Warrior", "Rancher", "Redneck"}
+    Public ReadOnly ClassKeys() As String = {"Aristocrat", "Bandit", "Barnsby", "Doc", "Gunslinger", "Gunsmith", "Juarez", "Miner", "Rifleman", "Sniper", "Thief", "Trapper", "TribeWarrior", "Rancher", "Redneck"}
+    Public ReadOnly ClassDefaults() As String = {"0083513030", "1044613030", "0088213030", "1086613030", "1155613031", "1020613030", "1077613030", "2174613034", "0033413030", "0087313030", "2181613032", "0087113030", "0088013030", "1099853030", "008B711030"}
+
+    ' Weapon lists (index = position in the combo boxes). One hand: 8 = none; both hands: 6 = none.
+    Public ReadOnly OneHandWeapons() As String = {"WeaponPistolCogswellNet", "WeaponPistolDerringerNet", "WeaponPistolLemantNet", "WeaponPistolPeacemakerNet", "WeaponRifleRemingtonSawOffNet", "WeaponPistolSchofieldNet", "WeaponPistolVolcanicNet", "WeaponPistolWalkerNet", "", "WeaponPistolFrontierNet", "WeaponPistolDerringerUpgradeNet", "WeaponPistolLemantUpgradeNet"}
+    Public ReadOnly BothHandsWeapons() As String = {"WeaponBowNet", "WeaponRifleRemingtonNet", "WeaponRifleSharpsNet", "WeaponRifleSharpsScopeNet", "WeaponRifleWinchesterNet", "WeaponRifleWinchesterScopeNet", "", "WeaponPistolFrontierUpgradeNet", "WeaponPistolDerringerUpgradeNet", "WeaponPistolLemantUpgradeNet"}
+    Public ReadOnly OneHandThumbs() As String = {"Cogswell", "Derringer", "Lemant", "PeaceMaker", "SawOff", "Schofield", "Volcanic", "Walker", "", "BorderGun", "ThrowingKnife", "Tomahawk"}
+    Public ReadOnly BothHandsThumbs() As String = {"Bow", "Remington", "Sharp", "SharpScope", "Winchester", "WinchesterScope", "", "Musket", "ThrowingKnife", "Tomahawk"}
+    Public ReadOnly AmmoAmounts() As Integer = {35, 45, 55, 65, 75, 95, 140, 190}
+
+    ' mod.ini keeps one character per setting: 0-9, then A, B... for the weapons added after the first nine.
+    Private Const IniChars As String = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+
+    Public Function IniDigit(ByVal index As Integer) As String
+        Return IniChars.Substring(Math.Max(0, index), 1)
+    End Function
+
+    Public Function IniIndex(ByVal ini As String, ByVal position As Integer) As Integer
+        Return Math.Max(0, IniChars.IndexOf(Char.ToUpperInvariant(ini(position))))
+    End Function
+
+    Public Function GetModIni(ByVal key As String) As String
+        Select Case key
+            Case "Aristocrat" : Return ModIniAristocrat
+            Case "Bandit" : Return ModIniBandit
+            Case "Barnsby" : Return ModIniBarnsby
+            Case "Doc" : Return ModIniDoc
+            Case "Gunslinger" : Return ModIniGunslinger
+            Case "Gunsmith" : Return ModIniGunsmith
+            Case "Juarez" : Return ModIniJuarez
+            Case "Miner" : Return ModIniMiner
+            Case "Rifleman" : Return ModIniRifleman
+            Case "Sniper" : Return ModIniSniper
+            Case "Thief" : Return ModIniThief
+            Case "Trapper" : Return ModIniTrapper
+            Case "TribeWarrior" : Return ModIniTribeWarrior
+            Case "Rancher" : Return ModIniRancher
+            Case "Redneck" : Return ModIniRedneck
+        End Select
+        Return ""
+    End Function
+
+    Public Sub SetModIni(ByVal key As String, ByVal value As String)
+        Select Case key
+            Case "Aristocrat" : ModIniAristocrat = value
+            Case "Bandit" : ModIniBandit = value
+            Case "Barnsby" : ModIniBarnsby = value
+            Case "Doc" : ModIniDoc = value
+            Case "Gunslinger" : ModIniGunslinger = value
+            Case "Gunsmith" : ModIniGunsmith = value
+            Case "Juarez" : ModIniJuarez = value
+            Case "Miner" : ModIniMiner = value
+            Case "Rifleman" : ModIniRifleman = value
+            Case "Sniper" : ModIniSniper = value
+            Case "Thief" : ModIniThief = value
+            Case "Trapper" : ModIniTrapper = value
+            Case "TribeWarrior" : ModIniTribeWarrior = value
+            Case "Rancher" : ModIniRancher = value
+            Case "Redneck" : ModIniRedneck = value
+        End Select
+    End Sub
+
+    Public Function ClassKeyOf(ByVal shownName As String) As String
+        Dim i As Integer = Array.IndexOf(ClassNames, shownName)
+        Return If(i >= 0, ClassKeys(i), "")
+    End Function
+
+    ' The server's CoJ2\Data\Player folder also holds files that are not the Controller's (a server can keep its own
+    ' class and weapon scripts there, and on Docker it is a mounted volume that cannot be deleted). So the folder is
+    ' never removed: only the class weapon files (_NetWeapon_<class>_Properties.scr) are taken out, then the mod's
+    ' files are copied over, replacing any with the same name.
+    ' The Rancher's and Redneck's weapon files are not in the game's own data (their stock versions differ), so after a
+    ' clean-up they get their IranCoJ New Classes weapons back unless the mod sets them.
+    Public Const RancherWeapons As String =
+        "!NetAmmo(s, i)" & vbCrLf & "!NetWeapon(s)" & vbCrLf & "!NetDefaultWeaponL(s)" & vbCrLf & "!NetDefaultWeaponR(s)" & vbCrLf & vbCrLf &
+        "NetDefaultWeaponR(""WeaponPistolFrontierNet"")" & vbCrLf & "NetDefaultWeaponL(""WeaponPistolFrontierNet"")" & vbCrLf &
+        "NetWeapon(""WeaponPistolFrontierNet"")" & vbCrLf & "NetWeapon(""WeaponPistolFrontierNet"")" & vbCrLf &
+        "NetAmmo(""AmmoPistol"", 90)" & vbCrLf & "NetWeapon(""WeaponPistolDerringerUpgradeNet"")" & vbCrLf
+    Public Const RedneckWeapons As String =
+        "!NetAmmo(s, i)" & vbCrLf & "!NetWeapon(s)" & vbCrLf & "!NetDefaultWeaponL(s)" & vbCrLf & "!NetDefaultWeaponR(s)" & vbCrLf & vbCrLf &
+        "NetDefaultWeaponR(""WeaponPistolFrontierUpgradeNet"")" & vbCrLf & "NetWeapon(""WeaponPistolFrontierUpgradeNet"")" & vbCrLf &
+        "NetAmmo(""AmmoRifle"", 45)" & vbCrLf & "NetWeapon(""WeaponPistolLemantUpgradeNet"")" & vbCrLf
+
+    Public Sub ClearPlayerClassFiles(ByVal playerDir As String)
+        If Not Directory.Exists(playerDir) Then Directory.CreateDirectory(playerDir)
+        For Each key As String In ClassKeys
+            Dim f As String = Path.Combine(playerDir, "_NetWeapon_" & key & "_Properties.scr")
+            If File.Exists(f) Then
+                File.SetAttributes(f, FileAttributes.Normal)
+                File.Delete(f)
+            End If
+        Next
+        File.WriteAllText(Path.Combine(playerDir, "_NetWeapon_Rancher_Properties.scr"), RancherWeapons)
+        File.WriteAllText(Path.Combine(playerDir, "_NetWeapon_Redneck_Properties.scr"), RedneckWeapons)
+    End Sub
+
+    Public Sub CopyModFiles(ByVal sourceDir As String, ByVal playerDir As String)
+        For Each src As String In Directory.GetFiles(sourceDir, "*", SearchOption.AllDirectories)
+            Dim rel As String = src.Substring(sourceDir.TrimEnd("\"c).Length).TrimStart("\"c)
+            If rel.StartsWith("ini\", StringComparison.OrdinalIgnoreCase) Then Continue For   ' the Controller's own mod.ini
+            Dim dst As String = Path.Combine(playerDir, rel)
+            Directory.CreateDirectory(Path.GetDirectoryName(dst))
+            If File.Exists(dst) Then File.SetAttributes(dst, FileAttributes.Normal)
+            File.Copy(src, dst, True)
+        Next
+    End Sub
 
 
 
@@ -142,6 +254,9 @@ Module Module1
 
 
         Dim FirstCharacter As Integer = 0
+        For Each key As String In ClassKeys   ' nothing left over from the mod read before
+            SetModIni(key, "")
+        Next
         ModIniCabecera = ModIniLeido.Substring(0, 1).ToString()
         For i = 1 To 13
             If i = 1 Then
@@ -200,6 +315,11 @@ Module Module1
 
         Next
 
+        For Each extra As String In {"Rancher", "Redneck"}
+            FirstCharacter = ModIniLeido.IndexOf(extra)
+            If FirstCharacter > -1 Then SetModIni(extra, ModIniLeido.Substring(FirstCharacter + Len(extra), 10).ToString())
+        Next
+
         ConfiguracionModInicial = ModIniLeido
 
     End Sub
@@ -230,6 +350,8 @@ Module Module1
         If Trim(ModIniThief) <> "" Then IniFinal = IniFinal & "Thief" & ModIniThief
         If Trim(ModIniTrapper) <> "" Then IniFinal = IniFinal & "Trapper" & ModIniTrapper
         If Trim(ModIniTribeWarrior) <> "" Then IniFinal = IniFinal & "TribeWarrior" & ModIniTribeWarrior
+        If Trim(ModIniRancher) <> "" Then IniFinal = IniFinal & "Rancher" & ModIniRancher
+        If Trim(ModIniRedneck) <> "" Then IniFinal = IniFinal & "Redneck" & ModIniRedneck
 
 
         write = File.AppendText(rutaAppData & "\Mods\" & modName & "\ini" & "\mod.ini")
@@ -266,6 +388,10 @@ Module Module1
             nombreArchivoObtenido = "_NetWeapon_Trapper_Properties.scr"
         ElseIf nombreArchivo = "Tribe Warrior" Then
             nombreArchivoObtenido = "_NetWeapon_TribeWarrior_Properties.scr"
+        ElseIf nombreArchivo = "Rancher" Then
+            nombreArchivoObtenido = "_NetWeapon_Rancher_Properties.scr"
+        ElseIf nombreArchivo = "Redneck" Then
+            nombreArchivoObtenido = "_NetWeapon_Redneck_Properties.scr"
         End If
 
     End Sub
@@ -318,6 +444,10 @@ Module Module1
             nombreClaseObtenido = "Trapper"
         ElseIf nombreClase = "_NetWeapon_TribeWarrior_Properties.scr" Then
             nombreClaseObtenido = "Tribe Warrior"
+        ElseIf nombreClase = "_NetWeapon_Rancher_Properties.scr" Then
+            nombreClaseObtenido = "Rancher"
+        ElseIf nombreClase = "_NetWeapon_Redneck_Properties.scr" Then
+            nombreClaseObtenido = "Redneck"
         End If
 
     End Sub

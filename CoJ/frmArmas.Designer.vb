@@ -103,7 +103,7 @@ Partial Class frmArmas
         '
         Me.cbClass.Font = New System.Drawing.Font("Microsoft Sans Serif", 8.25!, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, CType(0, Byte))
         Me.cbClass.FormattingEnabled = True
-        Me.cbClass.Items.AddRange(New Object() {"Aristocrat", "Bandit", "Barnsby", "Doc", "Gunslinger", "Gunsmith", "Juarez", "Miner", "Rifleman", "Sniper", "Thief", "Trapper", "Tribe Warrior"})
+        Me.cbClass.Items.AddRange(New Object() {"Aristocrat", "Bandit", "Barnsby", "Doc", "Gunslinger", "Gunsmith", "Juarez", "Miner", "Rifleman", "Sniper", "Thief", "Trapper", "Tribe Warrior", "Rancher", "Redneck"})
         Me.cbClass.Location = New System.Drawing.Point(13, 31)
         Me.cbClass.Margin = New System.Windows.Forms.Padding(4)
         Me.cbClass.Name = "cbClass"
@@ -124,7 +124,7 @@ Partial Class frmArmas
         'cbWeap1
         '
         Me.cbWeap1.FormattingEnabled = True
-        Me.cbWeap1.Items.AddRange(New Object() {"Cogswell", "Derringer", "Lemant", "Peacemaker", "SawOff", "Schofield", "Volcanic", "Walker", "None"})
+        Me.cbWeap1.Items.AddRange(New Object() {"Cogswell", "Derringer", "Lemant", "Peacemaker", "SawOff", "Schofield", "Volcanic", "Walker", "None", "Border Gun", "Throwing Knives", "Tomahawks"})
         Me.cbWeap1.Location = New System.Drawing.Point(281, 44)
         Me.cbWeap1.Margin = New System.Windows.Forms.Padding(4)
         Me.cbWeap1.Name = "cbWeap1"
@@ -134,7 +134,7 @@ Partial Class frmArmas
         'cbWeap2
         '
         Me.cbWeap2.FormattingEnabled = True
-        Me.cbWeap2.Items.AddRange(New Object() {"Cogswell", "Derringer", "Lemant", "Peacemaker", "SawOff", "Schofield", "Volcanic", "Walker", "None"})
+        Me.cbWeap2.Items.AddRange(New Object() {"Cogswell", "Derringer", "Lemant", "Peacemaker", "SawOff", "Schofield", "Volcanic", "Walker", "None", "Border Gun", "Throwing Knives", "Tomahawks"})
         Me.cbWeap2.Location = New System.Drawing.Point(8, 46)
         Me.cbWeap2.Margin = New System.Windows.Forms.Padding(4)
         Me.cbWeap2.Name = "cbWeap2"
@@ -155,7 +155,7 @@ Partial Class frmArmas
         'cbWeap3
         '
         Me.cbWeap3.FormattingEnabled = True
-        Me.cbWeap3.Items.AddRange(New Object() {"Bow", "Remington", "Sharps", "Sharps Scope", "Winchester", "Winchester Scope", "None"})
+        Me.cbWeap3.Items.AddRange(New Object() {"Bow", "Remington", "Sharps", "Sharps Scope", "Winchester", "Winchester Scope", "None", "Springfield Musket", "Throwing Knives", "Tomahawks"})
         Me.cbWeap3.Location = New System.Drawing.Point(24, 69)
         Me.cbWeap3.Margin = New System.Windows.Forms.Padding(4)
         Me.cbWeap3.Name = "cbWeap3"
