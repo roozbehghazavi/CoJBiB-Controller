@@ -2693,6 +2693,11 @@ Public Class frmConsola
             writer = File.CreateText(ruta & "\CoJ2\DedicatedServerSettings.ini")
 
             For i = 0 To NumLineas
+                'Leave out the Controller state line that 3.4 and older wrote at the top (and any broken
+                'piece of it starting with "##"): the DS can't parse it and won't load the file.
+                Dim l As String = If(arrLineaLeida(i), "")
+                If l.StartsWith("//Next line was created by Mods CoJ") OrElse l.StartsWith("##") OrElse
+                   (l.StartsWith("//") AndAlso l.Contains("##") AndAlso l.Contains(";;")) Then Continue For
                 writer.WriteLine(arrLineaLeida(i))
             Next
             writer.Close()

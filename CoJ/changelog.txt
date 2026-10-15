@@ -1,5 +1,30 @@
 ===============================================================================
  CoJ2 Controller - IranCoJ Edition
+ Version 3.5.0.0  -  2026-10-15
+ Fork of the original CoJ2 Controller by S!lv3r and Tr!tu (GPLv3).
+===============================================================================
+
+This update fixes the dedicated server failing to load its settings after a
+restart.
+
+-------------------------------------------------------------------------------
+ FIXES
+-------------------------------------------------------------------------------
+
+* The Controller no longer writes its own "//...##...##" line into
+  DedicatedServerSettings.ini and ServerAdmins.ini. When that line got broken,
+  a piece of it starting with "##" was left in the file and the server would
+  not load it. The Controller now keeps that line in its own files
+  (Config\ServerConfigState.ini and Config\ServerAdminsState.ini next to the exe).
+  Your saved settings are taken over from the old files the first time you open
+  the server settings.
+
+* The map rotation (console, Maps tab) removes the old line, and any leftover
+  "##" piece of it, from DedicatedServerSettings.ini when it saves the
+  rotation. This also stops the server password being kept in a comment there.
+
+===============================================================================
+ CoJ2 Controller - IranCoJ Edition
  Version 3.4.0.0  -  2026-10-05
  Fork of the original CoJ2 Controller by S!lv3r and Tr!tu (GPLv3).
 ===============================================================================

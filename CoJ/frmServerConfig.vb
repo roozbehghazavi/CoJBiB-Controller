@@ -233,11 +233,9 @@ Public Class frmServerConfig
             My.Computer.FileSystem.DeleteFile(rutaAppData & "\Config\DedicatedServerSettings.ini")
         End If
 
-        writer = File.AppendText(rutaAppData & "\Config\DedicatedServerSettings.ini")
+        GuardarEstado(kServerState, "//" & serverConfig & "##" & gameModeConfig & "##" & mapConfig & "##" & modeConfig & "##")
 
-        writer.WriteLine("//Next line was created by Mods CoJ. Do not modify!")
-        writer.WriteLine("//" & serverConfig & "##" & gameModeConfig & "##" & mapConfig & "##" & modeConfig & "##")
-        writer.WriteLine("")
+        writer = File.AppendText(rutaAppData & "\Config\DedicatedServerSettings.ini")
 
         EscribirCabeceraDS()
 
@@ -321,17 +319,13 @@ Public Class frmServerConfig
             Next
         End If
 
-        If My.Computer.FileSystem.FileExists(rutaAppData & "\Config\DedicatedServerSettings.ini") Then
-            Call LeerConfiguracion()
-        End If
+        Call LeerConfiguracion()
 
         If My.Computer.FileSystem.FileExists(rutaAppData & "\Config\MapsConfig.ini") Then
             Call LeeFicheroMapsConfigIni()
         End If
 
-        If My.Computer.FileSystem.FileExists(rutaAppData & "\Config\ServerAdmins.ini") Then
-            Call LeerConfigAdmins()
-        End If
+        Call LeerConfigAdmins()
 
     End Sub
 
@@ -473,11 +467,9 @@ Public Class frmServerConfig
             End If
         Next
 
-        writer = File.CreateText(rutaAppData & "\Config\ServerAdmins.ini")
+        GuardarEstado(kAdminsState, "//" & adminsUserConfig & "##" & adminPassConfig & "##" & adminLevelConfig & "##")
 
-        writer.WriteLine("//Next line was created by Mods CoJ. Do not modify!")
-        writer.WriteLine("//" & adminsUserConfig & "##" & adminPassConfig & "##" & adminLevelConfig & "##")
-        writer.WriteLine("")
+        writer = File.CreateText(rutaAppData & "\Config\ServerAdmins.ini")
 
         writer.WriteLine("!Admin(s, s, i)")
         writer.WriteLine("")
@@ -589,6 +581,36 @@ Public Class frmServerConfig
     End Sub
 
 
+    'The form's own state (server, game modes, maps / admins) lives in these files, not in the ini files the
+    'DS reads: up to 3.4 it was a "//...##...##" line at the top of DedicatedServerSettings.ini and
+    'ServerAdmins.ini, and when that line got broken the DS refused to load the file.
+    Const kServerState As String = "\Config\ServerConfigState.ini"
+    Const kAdminsState As String = "\Config\ServerAdminsState.ini"
+
+    'Kept next to the exe (its own Config folder), not in %APPDATA% - simpler to find and back up under Wine.
+    Sub GuardarEstado(fichero As String, linea As String)
+        My.Computer.FileSystem.CreateDirectory(Application.StartupPath & "\Config")
+        File.WriteAllText(Application.StartupPath & fichero, linea & vbCrLf)
+    End Sub
+
+    'The saved state line: from its state file, or (saved by 3.4 and older) line 2 of the old ini.
+    Function LeerEstado(fichero As String, iniAntiguo As String) As String
+        Dim linea As String = Nothing
+        Try
+            If File.Exists(Application.StartupPath & fichero) Then
+                Dim lineas() As String = File.ReadAllLines(Application.StartupPath & fichero)
+                If lineas.Length > 0 Then linea = lineas(0)
+            ElseIf File.Exists(rutaAppData & iniAntiguo) Then
+                Dim lineas() As String = File.ReadAllLines(rutaAppData & iniAntiguo)
+                If lineas.Length > 1 Then linea = lineas(1)
+            End If
+        Catch ex As Exception
+            Return Nothing
+        End Try
+        If linea Is Nothing OrElse Not linea.StartsWith("//") OrElse InStr(linea, "##") = 0 Then Return Nothing
+        Return linea
+    End Function
+
     Sub LeerConfiguracion()
         Dim linealeida As String = ""
         Dim lineaPanel1 As String = ""
@@ -597,13 +619,8 @@ Public Class frmServerConfig
         Dim lineaMode As String = ""
         Dim tipoDeMapas As String = ""
 
-        reader = File.OpenText(rutaAppData & "\Config\DedicatedServerSettings.ini")
-
-        reader.ReadLine()
-        linealeida = reader.ReadLine()
-        reader.Close()
-
-        If Trim(linealeida) = "" Or linealeida Is Nothing Then Exit Sub
+        linealeida = LeerEstado(kServerState, "\Config\DedicatedServerSettings.ini")
+        If linealeida Is Nothing Then Exit Sub
 
         'MsgBox(InStr(linealeida, "##"))
 
@@ -744,11 +761,11 @@ Public Class frmServerConfig
         Dim lineaPass As String = ""
         Dim lineaLevel As String = ""
 
-        reader = File.OpenText(rutaAppData & "\Config\ServerAdmins.ini")
-
-        reader.ReadLine()
-        linealeida = reader.ReadLine()
-        reader.Close()
+        linealeida = LeerEstado(kAdminsState, "\Config\ServerAdmins.ini")
+        If linealeida Is Nothing Then
+            leyendoConfig = False
+            Exit Sub
+        End If
 
         lineaUser = Mid(linealeida, 3, InStr(linealeida, "##") - 3)
         linealeida = Mid(linealeida, InStr(linealeida, "##") + 2, Len(linealeida) - (InStr(linealeida, "##") + 1))
